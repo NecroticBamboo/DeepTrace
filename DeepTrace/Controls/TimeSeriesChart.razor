@@ -1,0 +1,187 @@
+﻿@using PrometheusAPI;
+<div>
+    <p hidden="@IsChartShown"><em>Loading...</em></p>
+    <div hidden="@IsChartHidden">
+        <ApexChart @ref="_chart"
+                   TItem="TimeSeries"
+                   Title="Data view"
+                   Options="@_options"
+                   OnZoomed="OnZoomed"
+                   >
+
+            <ApexPointSeries TItem="TimeSeries"
+                             Name="Value"
+                             Items="@_currentData"
+                             SeriesType="SeriesType.Line"
+                             XValue="@(e => e.TimeStamp)"
+                             YAggregate="@(e => (decimal)e.Sum(e => e.Value))"
+                             ShowDataLabels="false" 
+                             />
+
+        </ApexChart>
+    </div>
+</div>
+
+@code {
+
+    [CascadingParameter]
+    protected bool IsDarkMode { get; set; }
+
+    [Parameter] public IList<TimeSeries>? Data { get; set; }
+
+    [Parameter] public DateTime?                MinDate        { get; set; }
+    [Parameter] public DateTime?                MaxDate        { get; set; }
+    [Parameter] public EventCallback<DateTime?> MinDateChanged { get; set; }
+    [Parameter] public EventCallback<DateTime?> MaxDateChanged { get; set; }
+
+    private ApexChart<TimeSeries>?        _chart;
+    private ApexChartOptions<TimeSeries>? _options;
+    private IList<TimeSeries>?            _currentData;
+
+    private bool IsChartHidden => _currentData == null;
+    private bool IsChartShown  => !IsChartHidden;
+
+    protected override void OnInitialized()
+    {
+        _options = CreateOptions();
+        base.OnInitialized();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Console.WriteLine("OnParametersSet");
+
+        await UpdateChart();
+        await base.OnParametersSetAsync();
+    }
+
+    private async Task UpdateChart()
+    {
+        if (Data == _currentData)
+            return;
+
+        _currentData = Data;
+
+        if (_currentData == null)
+            return;
+
+        //await InvokeAsync(StateHasChanged);
+        await _chart!.UpdateSeriesAsync();
+        await _chart!.UpdateOptionsAsync(true, true, true);
+        await InvokeAsync(StateHasChanged);
+
+    }
+
+    private ApexChartOptions<TimeSeries> CreateOptions()
+    {
+        var backgroundColor = IsDarkMode ? "var(--mud-palette-surface)"           : "#f3f3f3";
+        var gridColor       = IsDarkMode ? "var(--mud-palette-drawer-background)" : "#f3f3f3";
+        var borderColor     = IsDarkMode ? "var(--mud-palette-text-primary)"      : "#e7e7e7";
+        var lineColors      = IsDarkMode
+            ? new List<string> { "#F57F17", "#00838F" }
+            : new List<string> { "#77B6EA", "#545454" }
+            ;
+        var mode            = IsDarkMode
+            ? Mode.Dark
+            : Mode.Light
+            ;
+
+        var options = new ApexChartOptions<TimeSeries>
+            {
+                Chart = new()
+                {
+                    Background = backgroundColor,
+                    Toolbar = new()
+                    {
+                        Show = true
+                    },
+                    DropShadow = new()
+                    {
+                        Enabled = false,
+                        Color   = "",
+                        Top     = 18,
+                        Left    = 7,
+                        Blur    = 10,
+                        Opacity = 0.2d
+                    }
+                },
+                DataLabels = new()
+                {
+                    Enabled = false
+                },
+                Tooltip = new ApexCharts.Tooltip
+                {
+                    Y = new ()
+                    {
+                        Formatter = @"function(value, opts) {
+                                    if (value === undefined) {return '';}
+                                    return Number(value).toLocaleString();}",
+                    },
+                    X = new ()
+                    {
+                        Formatter = @"function(value, opts) {
+                                    if (value === undefined) {return '';}
+                                    return (new Date(value)).toISOString();}",
+                    }
+
+                },
+                Xaxis = new()
+                {
+                    Type = XAxisType.Datetime
+                },
+                Grid = new()
+                {
+                    BorderColor = borderColor,
+                    Row = new()
+                    {
+                        Colors = new List<string> { gridColor, "transparent" },
+                        Opacity = 0.5d
+                    }
+                },
+                Colors  = lineColors,
+                Markers = new() { Shape = ShapeEnum.Circle, Size = 2, FillOpacity = new Opacity(0.8d) },
+                Stroke  = new() { Curve = Curve.Straight, Width = 2 },
+                Legend  = new()
+                {
+                    Position        = LegendPosition.Top,
+                    HorizontalAlign = ApexCharts.Align.Right,
+                    Floating        = true,
+                    OffsetX         = -5,
+                    OffsetY         = -25
+                },
+                Theme = new()
+                {
+                    Mode = mode,
+                    Palette = PaletteType.Palette8,
+                }
+            };
+
+        return options;
+    }
+
+    private void OnZoomed(ZoomedData<TimeSeries> zoomedData)
+    {
+        if (zoomedData.XAxis?.Min == null && zoomedData.XAxis?.Max == null)
+            return;
+
+        DateTimeOffset xMin;
+        DateTimeOffset xMax;
+
+        xMin = zoomedData.XAxis?.Min == null
+        ? Data!.Min(e => e.TimeStamp.Date)
+        : DateTimeOffset.FromUnixTimeMilliseconds((long)zoomedData.XAxis.Min)
+        ;
+
+        xMax = zoomedData.XAxis?.Max == null
+            ? Data!.Max(e => e.TimeStamp.Date)
+            : DateTimeOffset.FromUnixTimeMilliseconds((long)zoomedData.XAxis.Max)
+            ;
+
+        MinDate = xMin.UtcDateTime;
+        MinDateChanged.InvokeAsync(MinDate);
+
+        MaxDate = xMax.UtcDateTime;
+        MaxDateChanged.InvokeAsync(MaxDate);
+    }
+
+}

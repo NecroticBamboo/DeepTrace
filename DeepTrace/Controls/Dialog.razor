@@ -1,0 +1,20 @@
+﻿<MudDialog>
+    <DialogContent>
+        @Text
+    </DialogContent>
+    <DialogActions>
+        @if (AllowCancel)
+        {
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+        }
+        <MudButton Color="MudBlazor.Color.Primary" OnClick="Submit">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    [Parameter] public bool AllowCancel { get; set; }
+    [Parameter] public string Text { get; set; } = "";
+
+    void Submit() => MudDialog?.Close(DialogResult.Ok(true));
+    void Cancel() => MudDialog?.Cancel();
+}

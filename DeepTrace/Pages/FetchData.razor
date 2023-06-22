@@ -1,0 +1,331 @@
+﻿@page "/fetchdata"
+@using DeepTrace.Controls
+@using DeepTrace.Data;
+@using Microsoft.ML;
+@using System.Data;
+@using MudBlazor;
+@using PrometheusAPI;
+@using System.ComponentModel.DataAnnotations;
+@using Microsoft.ML.Data;
+@using Microsoft.ML.TimeSeries;
+
+@inject PrometheusClient Prometheus
+@inject IDialogService DialogService
+
+<PageTitle>Prometheus</PageTitle>
+
+<style>
+    .graph {
+        max-width: 800px;
+        max-height: 600px;
+    }
+</style>
+
+<h1>Prometheus</h1>
+
+<MudGrid Justify="Justify.FlexStart">
+    <MudItem xs="12" sm="6" md="6" lg="3">
+        <MudCard>
+            <EditForm Model="@_queryForm" OnSubmit="@HandleSubmit" class="form-group" Context="editContext">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <MudCardContent>
+                    <MudTextField Label="Query" @bind-Value="_queryForm.Query" Variant="Variant.Text" InputType="InputType.Search" Lines="5" />
+                    <MudDateRangePicker @ref="_picker" Label="Date range" @bind-DateRange="_queryForm.Dates" AutoClose="true">
+                        <PickerActions>
+                            <MudButton Class="mr-auto align-self-start" OnClick="@(() => _picker!.Clear())">Clear</MudButton>
+                            <MudButton OnClick="@(() => _picker!.Close(false))">Cancel</MudButton>
+                            <MudButton Color="MudBlazor.Color.Primary" OnClick="@(() => _picker!.Close())">Ok</MudButton>
+                        </PickerActions>
+                    </MudDateRangePicker>
+                    <MudTimePicker Label="Start time" @bind-Time="_queryForm.TimeStart" />
+                    <MudTimePicker Label="End time" @bind-Time="_queryForm.TimeEnd" />
+                    @*<MudNumericField @bind-Value="_queryForm.StepSec" Label="Step (sec)" Variant="Variant.Text" Min="0" />*@
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-auto">Submit</MudButton>
+                </MudCardActions>
+            </EditForm>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="6" lg="9">
+        <MudCard>
+            <MudCardContent>
+                <TimeSeriesChart Data="@DisplayData" @bind-MinDate=MinDate @bind-MaxDate=MaxDate />
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+</MudGrid>
+
+
+@code {
+    [CascadingParameter]
+    protected bool IsDarkMode { get; set; }
+
+    private class PrometheusForm
+    {
+        [Required]
+        public string? Query { get; set; } = """ec2_cpu_utilization_24ae8d""";
+
+        public DateRange Dates { get; set; } = new DateRange(DateTime.UtcNow.Date - TimeSpan.FromDays(14), DateTime.UtcNow.Date);
+
+        public TimeSpan? TimeStart { get; set; }
+        public TimeSpan? TimeEnd { get; set; }
+
+        public TimeSpan Step { get; set; } = TimeSpan.FromSeconds(20);
+        public double StepSec
+        {
+            get => Step.TotalSeconds;
+            set => Step = TimeSpan.FromSeconds(value);
+        }
+    }
+
+    private PrometheusForm _queryForm = new();
+    private MudDateRangePicker? _picker;
+
+    private DateTime? MinDate
+    {
+        get => _queryForm.Dates.Start?.Date + _queryForm.TimeStart;
+        set
+        {
+            if (value == null)
+            {
+                _queryForm.Dates = new DateRange(DateTime.UtcNow.Date - TimeSpan.FromDays(1), DateTime.UtcNow.Date);
+                return;
+            }
+
+            _queryForm.Dates = new DateRange(value.Value.Date, _queryForm.Dates.End);
+            _queryForm.TimeStart = value.Value.TimeOfDay;
+
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private DateTime? MaxDate
+    {
+        get => _queryForm.Dates.End?.Date + _queryForm.TimeEnd;
+        set
+        {
+            if (value == null)
+            {
+                _queryForm.Dates = new DateRange(DateTime.UtcNow.Date - TimeSpan.FromDays(1), DateTime.UtcNow.Date);
+                return;
+            }
+
+            _queryForm.Dates = new DateRange(_queryForm.Dates.Start, value.Value.Date);
+            _queryForm.TimeEnd = value.Value.TimeOfDay;
+
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private List<TimeSeries>? DisplayData { get; set; }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_queryForm.Query) || _queryForm.Dates.End == null || _queryForm.Dates.Start == null)
+            return;
+
+        var startTime = _queryForm.TimeStart
+            ?? (
+                _queryForm.Dates.End!.Value.Date == DateTime.Now.Date
+                    ? DateTime.UtcNow.TimeOfDay
+                    : new TimeSpan(0, 0, 0, 0)
+                )
+                ;
+
+        var endTime = _queryForm.TimeEnd
+            ?? (
+                _queryForm.Dates.End!.Value.Date == DateTime.Now.Date
+                    ? DateTime.UtcNow.TimeOfDay
+                    : new TimeSpan(0, 23, 59, 29, 999)
+                )
+                ;
+
+        var startDate = _queryForm.Dates.Start.Value.Date + startTime;
+        var endDate = _queryForm.Dates.End.Value.Date + endTime;
+
+        try
+        {
+            var formatted = await Prometheus.FormatQuery(_queryForm.Query);
+            _queryForm.Query = formatted;
+        }
+        catch (Exception e)
+        {
+            ShowError(e.Message);
+            return;
+        }
+
+        TimeSpan step;
+
+        //step = _queryForm.Step;
+        //var n = (endDate - startDate).TotalSeconds / step.TotalSeconds;
+        //if (n > 1000)
+        var seconds = (endDate - startDate).TotalSeconds / 500.0;
+        if (seconds < 1.0)
+            seconds = 1.0;
+        step = TimeSpan.FromSeconds(seconds);
+
+        var res = await Prometheus.RangeQuery(_queryForm.Query, startDate, endDate, step, TimeSpan.FromSeconds(2));
+
+        if (res.Status != StatusType.Success)
+        {
+            ShowError(res.Error ?? "Error");
+            return;
+        }
+
+        if (res.ResultType != ResultTypeType.Matrix)
+        {
+            ShowError($"Got {res.ResultType}, but Matrix expected");
+            return;
+        }
+
+        var m = res.AsMatrix().Result;
+        if (m == null || m.Length != 1)
+        {
+            ShowError("No data returned");
+            return;
+        }
+
+        var mlContext = new MLContext();
+        DisplayData   = m[0].Values!.ToList();
+        var dataView = mlContext.Data.LoadFromEnumerable<MyTimeSeries>(DisplayData.Select(x => new MyTimeSeries(Time: x.TimeStamp, Value: x.Value)));
+
+        //DetectSpike(mlContext, dataView, data);
+        int period = DetectPeriod(mlContext, dataView);
+        DetectAnomaly(mlContext, dataView, period);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private record MyTimeSeries(DateTime Time, double Value);
+
+    private void ShowError(string text)
+    {
+        var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add("Text", text);
+
+        DialogService.Show<Controls.Dialog>("Error", parameters, options);
+    }
+
+
+    // -------- Tutorial: Detect anomalies in time series with ML.NET --------
+
+    private int DetectPeriod(MLContext mlContext, IDataView dataView)
+    {
+        string inputColumnName = nameof(TimeSeriesData.Value);
+        int period = mlContext.AnomalyDetection.DetectSeasonality(dataView, inputColumnName);
+        Console.WriteLine("Period of the series is: {0}.", period);
+        return period;
+    }
+
+    private void DetectAnomaly(MLContext mlContext, IDataView dataView, int period)
+    {
+        string outputColumnName = nameof(IidSpikePrediction.Prediction);
+        string inputColumnName = nameof(TimeSeriesData.Value);
+        var options = new SrCnnEntireAnomalyDetectorOptions()
+        {
+            Threshold = 0.3,
+            Sensitivity = 64.0,
+            DetectMode = SrCnnDetectMode.AnomalyAndMargin,
+            Period = period,
+        };
+
+        var outputDataView = mlContext.AnomalyDetection.DetectEntireAnomalyBySrCnn(dataView, outputColumnName, inputColumnName, options);
+        var predictions = mlContext.Data.CreateEnumerable<PredictionClass>(outputDataView, reuseRowObject: false);
+        Console.WriteLine("Index,Data,Anomaly,AnomalyScore,Mag,ExpectedValue,BoundaryUnit,UpperBoundary,LowerBoundary");
+        var index = 0;
+
+        foreach (var p in predictions)
+        {
+            if (p.Prediction is not null)
+            {
+                string output;
+                if (p.Prediction[0] == 1)
+                    output = "{0},{1},{2},{3},{4},  <-- alert is on! detected anomaly";
+                else
+                    output = "{0},{1},{2},{3},{4}";
+
+                Console.WriteLine(output, index, p.Prediction[0], p.Prediction[3], p.Prediction[5], p.Prediction[6]);
+            }
+            ++index;
+        }
+
+        Console.WriteLine("");
+    }
+
+    public class PredictionClass
+    {
+        // Vector to hold anomaly detection results, including isAnomaly, anomalyScore,
+        // magnitude, expectedValue, boundaryUnits, upperBoundary and lowerBoundary.
+        [VectorType(7)]
+        public double[]? Prediction { get; set; }
+    }
+
+
+    // -------- Spike detection tutorial ---------
+
+    private static void DetectSpike(MLContext mLContext, IDataView dataView, TimeSeries[]? data)
+    {
+        string outputColumnName = nameof(IidSpikePrediction.Prediction);
+        string inputColumnName = nameof(TimeSeriesData.Value);
+
+        var iidSpikeEstimator = mLContext.Transforms.DetectIidSpike(outputColumnName,
+                inputColumnName, 95.0d, data.Length / 4);
+        ITransformer iidSpikeTransform = iidSpikeEstimator.Fit(dataView);
+        IDataView transformedData = iidSpikeTransform.Transform(dataView);
+
+        var predictionColumn = mLContext.Data.CreateEnumerable<IidSpikePrediction>(
+               transformedData, reuseRowObject: false);
+
+        Console.WriteLine($"{outputColumnName} column obtained " +
+                $"post-transformation.");
+
+        Console.WriteLine("Number\tData\tAlert\tScore\tP-Value");
+
+        int k = 0;
+        foreach (var prediction in predictionColumn)
+            PrintPrediction(k, data[k++].Value, prediction);
+    }
+
+    private static void PrintPrediction(int k, float value, IidSpikePrediction prediction)
+    {
+        var anomaly = prediction.Prediction[0];
+        if (anomaly == 1)
+        {
+            Console.WriteLine("{0}\t{1}\t{2}\t{3:0.00}\t{4:0.00}   <--- anomaly", k, value,
+            prediction.Prediction[0], prediction.Prediction[1],
+            prediction.Prediction[2]);
+        }
+        else
+        {
+            Console.WriteLine("{0}\t{1}\t{2}\t{3:0.00}\t{4:0.00}", k, value,
+            prediction.Prediction[0], prediction.Prediction[1],
+            prediction.Prediction[2]);
+        }
+
+    }
+
+
+    class TimeSeriesData
+    {
+        public float Value;
+
+        public TimeSeriesData(float value)
+        {
+            Value = value;
+        }
+    }
+
+    class IidSpikePrediction
+    {
+        [VectorType(3)]
+        public double[] Prediction { get; set; }
+    }
+
+}
