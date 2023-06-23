@@ -1,33 +1,42 @@
 ﻿@using PrometheusAPI;
-<div>
-    <p hidden="@IsChartShown"><em>Loading...</em></p>
-    <div hidden="@IsChartHidden">
-        <ApexChart @ref="_chart"
-                   TItem="TimeSeries"
-                   Title="Data view"
-                   Options="@_options"
-                   OnZoomed="OnZoomed"
-                   >
-
-            <ApexPointSeries TItem="TimeSeries"
-                             Name="Value"
-                             Items="@_currentData"
-                             SeriesType="SeriesType.Line"
-                             XValue="@(e => e.TimeStamp)"
-                             YAggregate="@(e => (decimal)e.Sum(e => e.Value))"
-                             ShowDataLabels="false" 
-                             />
-
-        </ApexChart>
-    </div>
-</div>
+<ApexChart @ref="_chart"
+            TItem="TimeSeries"
+            Title="Data view"
+            Options="@_options"
+            OnZoomed="OnZoomed"
+            >
+    @foreach (var ts in _currentData.Series)
+    {
+        <ApexPointSeries TItem="TimeSeries"
+            Name="@ts.Name"
+            Items="@ts.Data"
+            SeriesType="SeriesType.Line"
+            XValue="@(e => e.TimeStamp)"
+            YAggregate="@(e => (decimal)e.Sum(e => e.Value))"
+            ShowDataLabels="false" 
+            />
+    }
+</ApexChart>
 
 @code {
+
+    public class TimeSeriesDataSet
+    {
+        public string Name { get; init; } = "Value";
+        public string Color { get; init; } = "";
+        public IReadOnlyCollection<TimeSeries> Data { get; init; } = Array.Empty<TimeSeries>();
+    }
+
+    public class TimeSeriesData
+    {
+        public List<TimeSeriesDataSet> Series { get; init; } = new List<TimeSeriesDataSet>();
+    }
+
 
     [CascadingParameter]
     protected bool IsDarkMode { get; set; }
 
-    [Parameter] public IList<TimeSeries>? Data { get; set; }
+    [Parameter] public TimeSeriesData? Data { get; set; }
 
     [Parameter] public DateTime?                MinDate        { get; set; }
     [Parameter] public DateTime?                MaxDate        { get; set; }
@@ -36,10 +45,7 @@
 
     private ApexChart<TimeSeries>?        _chart;
     private ApexChartOptions<TimeSeries>? _options;
-    private IList<TimeSeries>?            _currentData;
-
-    private bool IsChartHidden => _currentData == null;
-    private bool IsChartShown  => !IsChartHidden;
+    private TimeSeriesData                _currentData = new() { Series = { new () } };
 
     protected override void OnInitialized()
     {
@@ -60,9 +66,10 @@
         if (Data == _currentData)
             return;
 
-        _currentData = Data;
+        _currentData = Data ?? new() { Series = { new() } }; ;
+        _options = CreateOptions();
 
-        if (_currentData == null)
+        if (_chart == null)
             return;
 
         //await InvokeAsync(StateHasChanged);
@@ -77,10 +84,7 @@
         var backgroundColor = IsDarkMode ? "var(--mud-palette-surface)"           : "#f3f3f3";
         var gridColor       = IsDarkMode ? "var(--mud-palette-drawer-background)" : "#f3f3f3";
         var borderColor     = IsDarkMode ? "var(--mud-palette-text-primary)"      : "#e7e7e7";
-        var lineColors      = IsDarkMode
-            ? new List<string> { "#F57F17", "#00838F" }
-            : new List<string> { "#77B6EA", "#545454" }
-            ;
+        var lineColors      = _currentData.Series.Select( x => x.Color).ToList();
         var mode            = IsDarkMode
             ? Mode.Dark
             : Mode.Light
@@ -139,7 +143,7 @@
                     }
                 },
                 Colors  = lineColors,
-                Markers = new() { Shape = ShapeEnum.Circle, Size = 2, FillOpacity = new Opacity(0.8d) },
+                //Markers = new() { Shape = ShapeEnum.Circle, Size = 2, FillOpacity = new Opacity(0.8d) },
                 Stroke  = new() { Curve = Curve.Straight, Width = 2 },
                 Legend  = new()
                 {
@@ -168,12 +172,12 @@
         DateTimeOffset xMax;
 
         xMin = zoomedData.XAxis?.Min == null
-        ? Data!.Min(e => e.TimeStamp.Date)
+        ? _currentData!.Series.First().Data.Min(e => e.TimeStamp.Date)
         : DateTimeOffset.FromUnixTimeMilliseconds((long)zoomedData.XAxis.Min)
         ;
 
         xMax = zoomedData.XAxis?.Max == null
-            ? Data!.Max(e => e.TimeStamp.Date)
+            ? _currentData!.Series.First().Data.Max(e => e.TimeStamp.Date)
             : DateTimeOffset.FromUnixTimeMilliseconds((long)zoomedData.XAxis.Max)
             ;
 

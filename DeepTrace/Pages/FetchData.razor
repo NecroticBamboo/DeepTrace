@@ -25,12 +25,53 @@
 
 <MudGrid Justify="Justify.FlexStart">
     <MudItem xs="12" sm="6" md="6" lg="3">
+        
+        <MudCard Class="mb-3">
+            <MudCardActions>
+                <MudSelect T="DataSourceDefinition" Label="Query name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_queryForm.Source">
+                    @foreach (var source in _dataSources)
+                    {
+                        <MudSelectItem Value="@source">@source.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddSource">Add</MudButton>
+                @if (_dataSources.Count > 1)
+                {
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleDeleteSource">Delete</MudButton>
+                }
+            </MudCardActions>
+        </MudCard>
+        
         <MudCard>
             <EditForm Model="@_queryForm" OnSubmit="@HandleSubmit" class="form-group" Context="editContext">
                 <DataAnnotationsValidator />
                 <ValidationSummary />
                 <MudCardContent>
-                    <MudTextField Label="Query" @bind-Value="_queryForm.Query" Variant="Variant.Text" InputType="InputType.Search" Lines="5" />
+
+                    <MudTextField Label="Name" @bind-Value="_queryForm.Source.Name" Variant="Variant.Text" InputType="InputType.Search" />
+
+                    <MudGrid>
+                        @for ( var i = 0; i < _queryForm.Source.Queries.Count; i++ )
+                        {
+                            int pos = i;
+                            var def = _queryForm.Source.Queries[pos];
+
+                            <MudItem xs="10">
+                                <MudTextField Label="Query" @bind-Value="def.Query" Variant="Variant.Text" InputType="InputType.Search" Lines="2" />
+                            </MudItem>
+                            <MudItem xs="1">
+                                <MudIconButton Icon="@Icons.Material.Outlined.Add" Variant="Variant.Outlined" aria-label="add" OnClick="@(() => AddQuery(pos))"/>
+                                @if (_queryForm.Source.Queries.Count > 1)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Variant="Variant.Outlined" aria-label="delete" OnClick="@(() => DeleteQuery(pos))"/>
+                                }
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudColorPicker DisableToolbar="false" Label="Color" @bind-Value="def.Color" PickerVariant="PickerVariant.Inline" DisableAlpha=true />
+                            </MudItem>
+                        }
+                    </MudGrid>
+
                     <MudDateRangePicker @ref="_picker" Label="Date range" @bind-DateRange="_queryForm.Dates" AutoClose="true">
                         <PickerActions>
                             <MudButton Class="mr-auto align-self-start" OnClick="@(() => _picker!.Clear())">Clear</MudButton>
@@ -38,9 +79,11 @@
                             <MudButton Color="MudBlazor.Color.Primary" OnClick="@(() => _picker!.Close())">Ok</MudButton>
                         </PickerActions>
                     </MudDateRangePicker>
+
                     <MudTimePicker Label="Start time" @bind-Time="_queryForm.TimeStart" />
                     <MudTimePicker Label="End time" @bind-Time="_queryForm.TimeEnd" />
                     @*<MudNumericField @bind-Value="_queryForm.StepSec" Label="Step (sec)" Variant="Variant.Text" Min="0" />*@
+                    <MudTextField Label="Description" @bind-Value="_queryForm.Source.Description" Variant="Variant.Text" InputType="InputType.Search" Lines="3" />
                 </MudCardContent>
                 <MudCardActions>
                     <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-auto">Submit</MudButton>
@@ -51,7 +94,10 @@
     <MudItem xs="12" sm="6" md="6" lg="9">
         <MudCard>
             <MudCardContent>
-                <TimeSeriesChart Data="@DisplayData" @bind-MinDate=MinDate @bind-MaxDate=MaxDate />
+                <div hidden="@IsChartShown"><MudProgressCircular Color="MudBlazor.Color.Default" /></div>
+                <div hidden="@IsChartHidden">
+                    <TimeSeriesChart Data="@DisplayData" @bind-MinDate=MinDate @bind-MaxDate=MaxDate />
+                </div>
             </MudCardContent>
         </MudCard>
     </MudItem>
@@ -66,7 +112,7 @@
     private class PrometheusForm
     {
         [Required]
-        public string? Query { get; set; } = """ec2_cpu_utilization_24ae8d""";
+        public DataSourceDefinition Source { get; set; } = new();
 
         public DateRange Dates { get; set; } = new DateRange(DateTime.UtcNow.Date - TimeSpan.FromDays(14), DateTime.UtcNow.Date);
 
@@ -82,7 +128,20 @@
     }
 
     private PrometheusForm _queryForm = new();
+    private List<DataSourceDefinition> _dataSources = new() 
+    { 
+        new() 
+        { 
+            Queries = 
+            { 
+                new("""ec2_cpu_utilization_24ae8d""", "#F57F17") 
+            } 
+        } 
+    };
     private MudDateRangePicker? _picker;
+
+    private bool IsChartHidden => DisplayData == null;
+    private bool IsChartShown => !IsChartHidden;
 
     private DateTime? MinDate
     {
@@ -120,11 +179,72 @@
         }
     }
 
-    private List<TimeSeries>? DisplayData { get; set; }
+    private TimeSeriesChart.TimeSeriesData? DisplayData { get; set; }
+
+    private string[] _palette = new[]
+    {
+        "#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5",
+        "#FFEBEE", "#FCE4EC", "#F3E5F5", "#EDE7F6", "#E8EAF6",
+        "#FFCDD2", "#F8BBD0", "#E1BEE7", "#D1C4E9", "#C5CAE9",
+        "#EF9A9A", "#F48FB1", "#CE93D8", "#B39DDB", "#9FA8DA",
+        "#E57373", "#F06292", "#BA68C8", "#9575CD", "#7986CB",
+        "#EF5350", "#EC407A", "#AB47BC", "#7E57C2", "#5C6BC0",
+        "#E53935", "#D81B60", "#8E24AA", "#5E35B1", "#3949AB"
+    };
+
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _queryForm.Source = _dataSources[0];
+    }
+
+    private void AddQuery(int pos)
+    {
+        pos += 1;
+        var color = pos < _palette.Length
+        ? _palette[pos]
+        : "#F44336"
+        ;
+        _queryForm.Source.Queries.Insert(pos, new("",color));
+        StateHasChanged();
+    }
+
+    private void DeleteQuery(int pos)
+    {
+        _queryForm.Source.Queries.RemoveAt(pos);
+        StateHasChanged();
+    }
+
+
+    private void HandleAddSource()
+    {
+        _dataSources.Add(new() { Queries = { new("", _palette[0]) } });
+        _queryForm.Source = _dataSources[^1];
+        StateHasChanged();
+    }
+
+    private void HandleDeleteSource()
+    {
+        if (_dataSources.Count < 2)
+        {
+            return;
+        }
+
+        var pos = _dataSources.IndexOf(_queryForm.Source);
+        if (pos < 0)
+        {
+            ShowError("Not found");
+            return;
+        }
+        _dataSources.RemoveAt(pos);
+        _queryForm.Source = _dataSources[pos<_dataSources.Count ? pos: _dataSources.Count-1];
+        StateHasChanged();
+    }
 
     private async Task HandleSubmit()
     {
-        if (string.IsNullOrWhiteSpace(_queryForm.Query) || _queryForm.Dates.End == null || _queryForm.Dates.Start == null)
+        if (_queryForm.Source.Queries.Count < 1 || string.IsNullOrWhiteSpace(_queryForm.Source.Queries[0].Query) || _queryForm.Dates.End == null || _queryForm.Dates.Start == null)
             return;
 
         var startTime = _queryForm.TimeStart
@@ -146,16 +266,8 @@
         var startDate = _queryForm.Dates.Start.Value.Date + startTime;
         var endDate = _queryForm.Dates.End.Value.Date + endTime;
 
-        try
-        {
-            var formatted = await Prometheus.FormatQuery(_queryForm.Query);
-            _queryForm.Query = formatted;
-        }
-        catch (Exception e)
-        {
-            ShowError(e.Message);
+        if (!await FormatQueries())
             return;
-        }
 
         TimeSpan step;
 
@@ -167,36 +279,90 @@
             seconds = 1.0;
         step = TimeSpan.FromSeconds(seconds);
 
-        var res = await Prometheus.RangeQuery(_queryForm.Query, startDate, endDate, step, TimeSpan.FromSeconds(2));
+        var tasks = _queryForm.Source.Queries
+            .Select(x => Prometheus.RangeQuery(x.Query, startDate, endDate, step, TimeSpan.FromSeconds(2)))
+            .ToArray();
 
-        if (res.Status != StatusType.Success)
+        try
         {
-            ShowError(res.Error ?? "Error");
+            await Task.WhenAll(tasks);
+        }
+        catch ( Exception e )
+        {
+            ShowError(e.Message);
             return;
         }
 
-        if (res.ResultType != ResultTypeType.Matrix)
+        var data = new List<TimeSeriesChart.TimeSeriesDataSet>();
+
+        foreach ( var (res, def) in tasks.Select((x,i) => (x.Result, _queryForm.Source.Queries[i]) ))
         {
-            ShowError($"Got {res.ResultType}, but Matrix expected");
-            return;
+            if (res.Status != StatusType.Success)
+            {
+                ShowError(res.Error ?? "Error");
+                return;
+            }
+
+            if (res.ResultType != ResultTypeType.Matrix)
+            {
+                ShowError($"Got {res.ResultType}, but Matrix expected for {def.Query}");
+                return;
+            }
+
+            var m = res.AsMatrix().Result;
+            if (m == null || m.Length != 1)
+            {
+                ShowError($"No data returned for {def.Query}");
+                return;
+            }
+
+            data.Add(
+                new()
+                {
+                    Name  = def.Query, 
+                    Color = def.Color.Value,
+                    Data  = m[0].Values!.ToList()
+                }
+            );
         }
 
-        var m = res.AsMatrix().Result;
-        if (m == null || m.Length != 1)
-        {
-            ShowError("No data returned");
-            return;
-        }
+        DisplayData = new() { Series = data };
+        await InvokeAsync(StateHasChanged);
+
+        // --------------------- playground -----------------------------
 
         var mlContext = new MLContext();
-        DisplayData   = m[0].Values!.ToList();
-        var dataView = mlContext.Data.LoadFromEnumerable<MyTimeSeries>(DisplayData.Select(x => new MyTimeSeries(Time: x.TimeStamp, Value: x.Value)));
+
+        var dataView = mlContext.Data.LoadFromEnumerable<MyTimeSeries>(DisplayData.Series[0].Data.Select(x => new MyTimeSeries(Time: x.TimeStamp, Value: x.Value)));
 
         //DetectSpike(mlContext, dataView, data);
         int period = DetectPeriod(mlContext, dataView);
         DetectAnomaly(mlContext, dataView, period);
 
-        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task<bool> FormatQueries()
+    {
+        try
+        {
+            var formatTasks = _queryForm.Source.Queries
+                .Select(x => Prometheus.FormatQuery(x.Query))
+                .ToArray();
+
+            await Task.WhenAll(formatTasks);
+
+            for ( var i = 0; i < formatTasks.Length; i++ )
+            {
+                _queryForm.Source.Queries[i].Query = formatTasks[i].Result;
+            }
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            ShowError(e.Message);
+            return false;
+        }
     }
 
     private record MyTimeSeries(DateTime Time, double Value);
