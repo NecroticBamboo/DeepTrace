@@ -1,4 +1,4 @@
-﻿@page "/fetchdata"
+﻿@page "/datasources"
 @using DeepTrace.Controls
 @using DeepTrace.Data;
 @using Microsoft.ML;
@@ -86,6 +86,7 @@
                     <MudTextField Label="Description" @bind-Value="_queryForm.Source.Description" Variant="Variant.Text" InputType="InputType.Search" Lines="3" />
                 </MudCardContent>
                 <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-auto" OnClick="@HandleTrain">Train</MudButton>
                     <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-auto">Submit</MudButton>
                 </MudCardActions>
             </EditForm>
@@ -331,6 +332,18 @@
 
         // --------------------- playground -----------------------------
 
+        // var mlContext = new MLContext();
+        // 
+        // var dataView = mlContext.Data.LoadFromEnumerable<MyTimeSeries>(DisplayData.Series[0].Data.Select(x => new MyTimeSeries(Time: x.TimeStamp, Value: x.Value)));
+        // 
+        // //DetectSpike(mlContext, dataView, data);
+        // int period = DetectPeriod(mlContext, dataView);
+        // DetectAnomaly(mlContext, dataView, period);
+
+    }
+
+    private void HandleTrain()
+    {
         var mlContext = new MLContext();
 
         var dataView = mlContext.Data.LoadFromEnumerable<MyTimeSeries>(DisplayData.Series[0].Data.Select(x => new MyTimeSeries(Time: x.TimeStamp, Value: x.Value)));
@@ -338,7 +351,6 @@
         //DetectSpike(mlContext, dataView, data);
         int period = DetectPeriod(mlContext, dataView);
         DetectAnomaly(mlContext, dataView, period);
-
     }
 
     private async Task<bool> FormatQueries()
