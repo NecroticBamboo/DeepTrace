@@ -1,6 +1,134 @@
 ﻿@page "/training"
-<h3>Training</h3>
+@using DeepTrace.Controls;
+@using DeepTrace.Data;
+
+<PageTitle>Training</PageTitle>
+
+<style>
+    .graph {
+        max-width: 800px;
+        max-height: 600px;
+    }
+</style>
+
+<h1>Training</h1>
+
+<MudGrid Justify="Justify.FlexStart">
+    <MudItem xs="12" sm="6" md="6" lg="3">
+
+        <MudCard Class="mb-3">
+            <MudCardActions>
+                <MudSelect T="String" Label="Model name" AnchorOrigin="Origin.BottomCenter"></MudSelect>
+                <MudSelect T="DataSourceDefinition" Label="Query name" AnchorOrigin="Origin.BottomCenter"></MudSelect>
+
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAdd">Add</MudButton>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleDelete">Delete</MudButton>
+            </MudCardActions>
+        </MudCard>
+
+        <MudCard Class="mb-3">
+            <MudTimePicker Label="Start time" @bind-Time="TimeStart"/>
+            <MudTimePicker Label="End time" @bind-Time="TimeEnd" />
+            <MudTextField Label="Model name" T="String" Variant="Variant.Text" InputType="InputType.Search" @bind-Text="ModelName"/>
+            <MudTextField Label="AI parameters" T="String" Variant="Variant.Text" InputType="InputType.Search" />
+        </MudCard>
+
+        <MudCard Class="mb-3">
+            <MudCardActions>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddTableContent">Add</MudButton>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleDeleteTableContent">Delete</MudButton>
+
+                <MudSpacer/>
+
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleTrain">Train</MudButton>
+            </MudCardActions>
+
+            <MudTable Items="@tableElements.Take(2)" Hover="true" Breakpoint="Breakpoint.Sm" T="TableElement">
+                <HeaderContent>
+                    <MudTh>From</MudTh>
+                    <MudTh>To</MudTh>
+                    <MudTh>Name</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="From">@context.From</MudTd>
+                    <MudTd DataLabel="To">@context.To</MudTd>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="6" lg="9">
+        <MudCard>
+            <MudCardContent>
+                <div hidden="@IsChartShown"><MudProgressCircular Color="MudBlazor.Color.Default" /></div>
+                <div hidden="@IsChartHidden">
+                    @*Bind minDate and maxDate*@
+                    <TimeSeriesChart Data="@DisplayData"  />
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
 @code {
 
+    public TimeSpan? TimeStart { get; set; }
+    public TimeSpan? TimeEnd { get; set; }
+    public String ModelName { get; set; } = String.Empty;
+
+    private bool IsChartHidden => DisplayData == null;
+    private bool IsChartShown => !IsChartHidden;
+
+    private TimeSeriesChart.TimeSeriesData? DisplayData { get; set; }
+
+
+
+    private void HandleAdd()
+    {
+
+    }
+
+    private void HandleDelete()
+    {
+
+    }
+
+    private void HandleAddTableContent()
+    {
+
+    }
+
+    private void HandleDeleteTableContent()
+    {
+
+    }
+
+    private void HandleTrain()
+    {
+
+    }
+
+
+    private static List<TableElement> tableElements = new List<TableElement>
+    {
+        new TableElement(new TimeSpan(1),new TimeSpan(1),"cc"),
+        new TableElement(new TimeSpan(1),new TimeSpan(1),"qq")
+    };
+
+    public class TableElement
+    {
+        public TableElement(TimeSpan from, TimeSpan to, string name)
+        {
+            From = from;
+            To = to;
+            Name = name;
+        }
+
+        public TimeSpan From { get; set; }
+
+        public TimeSpan To { get; set; }
+
+        public string Name { get; set; }
+
+    }
 }
