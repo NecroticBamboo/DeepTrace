@@ -10,7 +10,7 @@ public class DataSourceQuery
     }
     
     public string Query { get; set; }
-    public MudBlazor.Utilities.MudColor Color { get; set; }
+    public string Color { get; set; }
     
 }
 

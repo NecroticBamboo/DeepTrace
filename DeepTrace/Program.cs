@@ -1,8 +1,7 @@
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
-using DeepTrace.Data;
 using MudBlazor.Services;
 using PrometheusAPI;
+using MongoDB.Driver;
+using DeepTrace.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +10,12 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddMudServices();
 
-builder.Services.AddHttpClient<PrometheusClient>(c => c.BaseAddress = new UriBuilder("http://localhost:9090").Uri);
+builder.Services.AddHttpClient<PrometheusClient>(c => c.BaseAddress = new UriBuilder(builder.Configuration.GetValue<string>("Connections:Prometheus")!).Uri);
+
+builder.Services
+    .AddSingleton<IMongoClient>( s => new MongoClient(builder.Configuration.GetValue<string>("Connections:MongoDb") ))
+    .AddSingleton<IDataSourceStorageService, DataSourceStorageService>()
+    ;
 
 var app = builder.Build();
 
@@ -20,7 +24,6 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
 }
-
 
 app.UseStaticFiles();
 

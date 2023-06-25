@@ -1,6 +1,7 @@
 ﻿@page "/datasources"
 @using DeepTrace.Controls
 @using DeepTrace.Data;
+@using DeepTrace.Services;
 @using Microsoft.ML;
 @using System.Data;
 @using MudBlazor;
@@ -11,6 +12,7 @@
 
 @inject PrometheusClient Prometheus
 @inject IDialogService DialogService
+@inject IDataSourceStorageService StorageService
 
 <PageTitle>DataSources</PageTitle>
 
@@ -28,7 +30,7 @@
         
         <MudCard Class="mb-3">
             <MudCardActions>
-                <MudSelect T="DataSourceDefinition" Label="Query name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_queryForm.Source">
+                <MudSelect T="DataSourceStorage" Label="Query name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_queryForm.Source">
                     @foreach (var source in _dataSources)
                     {
                         <MudSelectItem Value="@source">@source.Name</MudSelectItem>
@@ -67,7 +69,7 @@
                                 }
                             </MudItem>
                             <MudItem xs="12">
-                                <MudColorPicker DisableToolbar="false" Label="Color" @bind-Value="def.Color" PickerVariant="PickerVariant.Inline" DisableAlpha=true />
+                                <MudColorPicker DisableToolbar="false" Label="Color" @bind-Text="def.Color" Style="@($"color: {def.Color};")" PickerVariant="PickerVariant.Inline" DisableAlpha=true />
                             </MudItem>
                         }
                     </MudGrid>
@@ -113,7 +115,7 @@
     private class PrometheusForm
     {
         [Required]
-        public DataSourceDefinition Source { get; set; } = new();
+        public DataSourceStorage Source { get; set; } = new();
 
         public DateRange Dates { get; set; } = new DateRange(DateTime.UtcNow.Date - TimeSpan.FromDays(14), DateTime.UtcNow.Date);
 
@@ -129,7 +131,7 @@
     }
 
     private PrometheusForm _queryForm = new();
-    private List<DataSourceDefinition> _dataSources = new() 
+    private List<DataSourceStorage> _dataSources = new()
     { 
         new() 
         { 
@@ -194,9 +196,12 @@
     };
 
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         base.OnInitialized();
+        var res = await StorageService.Load();
+        if (res.Count > 0)
+            _dataSources = res;
         _queryForm.Source = _dataSources[0];
     }
 
@@ -225,7 +230,7 @@
         StateHasChanged();
     }
 
-    private void HandleDeleteSource()
+    private async Task HandleDeleteSource()
     {
         if (_dataSources.Count < 2)
         {
@@ -238,8 +243,16 @@
             ShowError("Not found");
             return;
         }
+
+        var toDelete = _dataSources[pos];
         _dataSources.RemoveAt(pos);
         _queryForm.Source = _dataSources[pos<_dataSources.Count ? pos: _dataSources.Count-1];
+
+        if ( toDelete.Id == null )
+        {
+            await StorageService.Delete(toDelete);
+        }
+
         StateHasChanged();
     }
 
@@ -267,19 +280,24 @@
         var startDate = _queryForm.Dates.Start.Value.Date + startTime;
         var endDate = _queryForm.Dates.End.Value.Date + endTime;
 
-        if (!await FormatQueries())
-            return;
-
-        TimeSpan step;
-
         //step = _queryForm.Step;
         //var n = (endDate - startDate).TotalSeconds / step.TotalSeconds;
         //if (n > 1000)
+
+        // use automatic step value to always request 500 elements
         var seconds = (endDate - startDate).TotalSeconds / 500.0;
         if (seconds < 1.0)
             seconds = 1.0;
-        step = TimeSpan.FromSeconds(seconds);
+        var step = TimeSpan.FromSeconds(seconds);
 
+        // -------------------------------------------------- check syntax and format all queries
+        if (!await FormatQueries())
+            return;
+
+        // -------------------------------------------------- persist data source!
+        await StorageService.Store(_queryForm.Source);
+
+        // -------------------------------------------------- execute queries
         var tasks = _queryForm.Source.Queries
             .Select(x => Prometheus.RangeQuery(x.Query, startDate, endDate, step, TimeSpan.FromSeconds(2)))
             .ToArray();
@@ -321,7 +339,7 @@
                 new()
                 {
                     Name  = def.Query, 
-                    Color = def.Color.Value,
+                    Color = def.Color,
                     Data  = m[0].Values!.ToList()
                 }
             );
