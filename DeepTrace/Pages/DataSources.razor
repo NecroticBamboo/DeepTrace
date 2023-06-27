@@ -30,7 +30,7 @@
         
         <MudCard Class="mb-3">
             <MudCardActions>
-                <MudSelect T="DataSourceStorage" Label="Query name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_queryForm.Source">
+                <MudSelect T="DataSourceStorage" Label="Source name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_queryForm.Source" >
                     @foreach (var source in _dataSources)
                     {
                         <MudSelectItem Value="@source">@source.Name</MudSelectItem>
@@ -43,9 +43,9 @@
                 }
             </MudCardActions>
         </MudCard>
-        
-        <MudCard>
-            <EditForm Model="@_queryForm" OnSubmit="@HandleSubmit" class="form-group" Context="editContext">
+
+        <EditForm Model="@_queryForm" OnSubmit="@HandleSubmit" class="form-group" Context="editContext">
+            <MudCard Class="mb-3">
                 <DataAnnotationsValidator />
                 <ValidationSummary />
                 <MudCardContent>
@@ -53,27 +53,32 @@
                     <MudTextField Label="Name" @bind-Value="_queryForm.Source.Name" Variant="Variant.Text" InputType="InputType.Search" />
 
                     <MudGrid>
-                        @for ( var i = 0; i < _queryForm.Source.Queries.Count; i++ )
+                        @for (var i = 0; i < _queryForm.Source.Queries.Count; i++)
                         {
                             int pos = i;
-                            var def = _queryForm.Source.Queries[pos];
 
                             <MudItem xs="10">
-                                <MudTextField Label="Query" @bind-Value="def.Query" Variant="Variant.Text" InputType="InputType.Search" Lines="2" />
+                                <MudTextField Label="Query" @bind-Value="_queryForm.Source.Queries[pos].Query" Variant="Variant.Text" InputType="InputType.Search" Lines="2" />
                             </MudItem>
                             <MudItem xs="1">
-                                <MudIconButton Icon="@Icons.Material.Outlined.Add" Variant="Variant.Outlined" aria-label="add" OnClick="@(() => AddQuery(pos))"/>
+                                <MudIconButton Icon="@Icons.Material.Outlined.Add" Variant="Variant.Outlined" aria-label="add" OnClick="@(() => AddQuery(pos))" />
                                 @if (_queryForm.Source.Queries.Count > 1)
                                 {
-                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Variant="Variant.Outlined" aria-label="delete" OnClick="@(() => DeleteQuery(pos))"/>
+                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Variant="Variant.Outlined" aria-label="delete" OnClick="@(() => DeleteQuery(pos))" />
                                 }
                             </MudItem>
                             <MudItem xs="12">
-                                <MudColorPicker DisableToolbar="false" Label="Color" @bind-Text="def.Color" Style="@($"color: {def.Color};")" PickerVariant="PickerVariant.Inline" DisableAlpha=true />
+                                <MudColorPicker DisableToolbar="false" Label="Color" @bind-Text="_queryForm.Source.Queries[pos].Color" Style="@($"color: {_queryForm.Source.Queries[pos].Color};")" PickerVariant="PickerVariant.Inline" DisableAlpha=true />
                             </MudItem>
                         }
                     </MudGrid>
-
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-auto">Submit</MudButton>
+                </MudCardActions>
+            </MudCard>
+            <MudCard Class="mb-3">
+                <MudCardContent>
                     <MudDateRangePicker @ref="_picker" Label="Date range" @bind-DateRange="_queryForm.Dates" AutoClose="true">
                         <PickerActions>
                             <MudButton Class="mr-auto align-self-start" OnClick="@(() => _picker!.Clear())">Clear</MudButton>
@@ -88,11 +93,11 @@
                     <MudTextField Label="Description" @bind-Value="_queryForm.Source.Description" Variant="Variant.Text" InputType="InputType.Search" Lines="3" />
                 </MudCardContent>
                 <MudCardActions>
+                    <p>Remove thus button!</p>
                     <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-auto" OnClick="@HandleTrain">Train</MudButton>
-                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-auto">Submit</MudButton>
                 </MudCardActions>
-            </EditForm>
-        </MudCard>
+            </MudCard>
+        </EditForm>
     </MudItem>
     <MudItem xs="12" sm="6" md="6" lg="9">
         <MudCard>

@@ -11,7 +11,8 @@ public class DataSourceQuery
     
     public string Query { get; set; }
     public string Color { get; set; }
-    
+
+    public override string ToString() => Query;
 }
 
 public class DataSourceDefinition
@@ -26,4 +27,6 @@ public class DataSourceDefinition
     public string Name { get; set; }
     public List<DataSourceQuery> Queries { get; set; } = new();
     public string Description { get; set; } = string.Empty;
+
+    public override string ToString() => Name;
 }

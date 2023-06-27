@@ -364,3 +364,5 @@ FodyWeavers.xsd
 
 TrainData
 prometheus-2.45.0-rc.0.windows-amd64
+mongodb-windows-x86_64-6.0.6
+*.patch
