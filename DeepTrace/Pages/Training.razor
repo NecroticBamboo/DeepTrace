@@ -1,6 +1,15 @@
 ﻿@page "/training"
-@using DeepTrace.Controls;
 @using DeepTrace.Data;
+@using DeepTrace.Services;
+@using System.ComponentModel.DataAnnotations;
+@using DeepTrace.Controls;
+@using PrometheusAPI;
+
+@inject PrometheusClient Prometheus
+@inject IDialogService DialogService
+@inject IDataSourceStorageService StorageService
+@inject IModelStorageService ModelService
+
 
 <PageTitle>Training</PageTitle>
 
@@ -18,41 +27,56 @@
 
         <MudCard Class="mb-3">
             <MudCardActions>
-                <MudSelect T="String" Label="Model name" AnchorOrigin="Origin.BottomCenter"></MudSelect>
-                <MudSelect T="DataSourceDefinition" Label="Query name" AnchorOrigin="Origin.BottomCenter"></MudSelect>
+                <MudSelect T="ModelStorage" Label="Model name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_modelForm!.CurrentModel">
+                    @foreach (var model in _modelDefinitions)
+                    {
+                        <MudSelectItem Value="@model">@model.Name</MudSelectItem>
+                    }
+                </MudSelect>
 
-                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAdd">Add</MudButton>
-                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleDelete">Delete</MudButton>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddModel">Add</MudButton>
+                @if (_modelDefinitions.Count > 1)
+                {
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleDelete">Delete</MudButton>
+                }
+            </MudCardActions>
+            <MudCardActions>
+                <MudSelect T="DataSourceStorage" Label="Data source name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_modelForm!.DataSourceStorageSource">
+                    @foreach (var source in _dataSources)
+                    {
+                        <MudSelectItem Value="@source">@source.Name</MudSelectItem>
+                    }
+                </MudSelect>
             </MudCardActions>
         </MudCard>
 
         <MudCard Class="mb-3">
-            <MudTimePicker Label="Start time" @bind-Time="TimeStart"/>
-            <MudTimePicker Label="End time" @bind-Time="TimeEnd" />
-            <MudTextField Label="Model name" T="String" Variant="Variant.Text" InputType="InputType.Search" @bind-Text="ModelName"/>
+            <MudTextField Label="Model name" T="String" Variant="Variant.Text" InputType="InputType.Search" @bind-Value="_modelForm!.CurrentModel.Name" />
+            <MudTimePicker Label="Start time" @bind-Time="_modelForm.TimeStart"/>
+            <MudTimePicker Label="End time" @bind-Time="_modelForm.TimeEnd" />
             <MudTextField Label="AI parameters" T="String" Variant="Variant.Text" InputType="InputType.Search" />
         </MudCard>
 
         <MudCard Class="mb-3">
             <MudCardActions>
-                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddTableContent">Add</MudButton>
-                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleDeleteTableContent">Delete</MudButton>
-
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddTableContent" Disabled="@IsAddDisabled">Add</MudButton>
                 <MudSpacer/>
 
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleTrain">Train</MudButton>
             </MudCardActions>
 
-            <MudTable Items="@tableElements.Take(2)" Hover="true" Breakpoint="Breakpoint.Sm" T="TableElement">
+            <MudTable Items="@_modelForm!.CurrentModel.IntervalDefinitionList" Hover="true" Breakpoint="Breakpoint.Sm" T="IntervalDefinition">
                 <HeaderContent>
                     <MudTh>From</MudTh>
                     <MudTh>To</MudTh>
                     <MudTh>Name</MudTh>
+                    <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="From">@context.From</MudTd>
                     <MudTd DataLabel="To">@context.To</MudTd>
                     <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Class="ml-3" OnClick="@HandleDeleteTableContent"></MudIconButton>
                 </RowTemplate>
             </MudTable>
         </MudCard>
@@ -63,7 +87,7 @@
                 <div hidden="@IsChartShown"><MudProgressCircular Color="MudBlazor.Color.Default" /></div>
                 <div hidden="@IsChartHidden">
                     @*Bind minDate and maxDate*@
-                    <TimeSeriesChart Data="@DisplayData"  />
+                    <TimeSeriesChart Data="@DisplayData" @bind-MinDate=MinDate @bind-MaxDate=MaxDate />
                 </div>
             </MudCardContent>
         </MudCard>
@@ -72,18 +96,175 @@
 
 @code {
 
-    public TimeSpan? TimeStart { get; set; }
-    public TimeSpan? TimeEnd { get; set; }
-    public String ModelName { get; set; } = String.Empty;
-
     private bool IsChartHidden => DisplayData == null;
     private bool IsChartShown => !IsChartHidden;
 
-    private TimeSeriesChart.TimeSeriesData? DisplayData { get; set; }
+    private class ModelForm
+    {
+        public ModelForm(Training self)
+        {
+            _self = self;
+        }
+        private DataSourceStorage _current = new();
+        private readonly Training _self;
 
+        [Required]
+        public DataSourceStorage DataSourceStorageSource
+        {
+            get
+            {
+                return _current;
+            }
+            set
+            {
+                if(_current == value)
+                {
+                    return;
+                }
+                _current = value;
+                CurrentModel.DataSourceName = _current.Name;
+                _self.InvokeAsync(_self.HandleShowQuery);
+            }
+        }
 
+        [Required]
+        public ModelStorage CurrentModel { get; set; } = new();
 
-    private void HandleAdd()
+        public DateRange Dates { get; set; } = new DateRange(DateTime.UtcNow.Date - TimeSpan.FromDays(14), DateTime.UtcNow.Date);
+
+        public TimeSpan? TimeStart { get; set; }
+        public TimeSpan? TimeEnd { get; set; }
+
+        public TimeSpan Step { get; set; } = TimeSpan.FromSeconds(20);
+        public double StepSec
+        {
+            get => Step.TotalSeconds;
+            set => Step = TimeSpan.FromSeconds(value);
+        }
+    }
+
+    private ModelForm? _modelForm;
+    private TimeSeriesData? DisplayData { get; set; }
+    private List<DataSourceStorage> _dataSources = new();
+    private List<ModelStorage> _modelDefinitions = new() {new()};
+
+    private DateTime? _minDate;
+    private DateTime? _maxDate;
+    private bool IsAddDisabled => DisplayData==null;
+
+    private DateTime? MinDate
+    {
+        get
+        {
+            return _minDate ?? DisplayData?.Series.FirstOrDefault()?.Data.MinBy(x=>x.TimeStamp)?.TimeStamp;        
+        }
+        set
+        {
+            if (_minDate == value) return;
+            _minDate = value;
+            InvokeAsync(HandleShowQuery);
+        }
+    }
+
+    private DateTime? MaxDate
+    {
+        get
+        {
+            return _maxDate ?? DisplayData?.Series.FirstOrDefault()?.Data.MaxBy(x => x.TimeStamp)?.TimeStamp;
+        }
+        set
+        {
+            if (_maxDate == value) return;
+            _maxDate = value;
+            InvokeAsync(HandleShowQuery);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _modelForm = new(this);
+
+        base.OnInitialized();
+
+        var sources = await StorageService.Load();
+        var models = await ModelService.Load();
+        if (sources.Count > 0)
+            _dataSources = sources;
+        if (models.Count > 0)
+            _modelDefinitions = models;
+
+        _modelForm.CurrentModel = _modelDefinitions[0];
+        var source = _dataSources.FirstOrDefault(x => x.Name == _modelDefinitions[0].DataSourceName);
+        _modelForm.DataSourceStorageSource = source ?? _dataSources[0];
+
+    }
+
+    private async Task HandleShowQuery()
+    {
+        if (_modelForm!.DataSourceStorageSource.Queries.Count < 1 || string.IsNullOrWhiteSpace(_modelForm.DataSourceStorageSource.Queries[0].Query) || _modelForm.Dates.End == null || _modelForm.Dates.Start == null)
+            return;
+
+        var startDate = MinDate ?? (DateTime.UtcNow - TimeSpan.FromDays(30));
+        var endDate = MaxDate ?? DateTime.UtcNow;
+
+        // use automatic step value to always request 500 elements
+        var seconds = (endDate - startDate).TotalSeconds / 500.0;
+        if (seconds < 1.0)
+            seconds = 1.0;
+        var step = TimeSpan.FromSeconds(seconds);
+
+        var tasks = _modelForm.DataSourceStorageSource.Queries
+            .Select(x => Prometheus.RangeQuery(x.Query, startDate, endDate, step, TimeSpan.FromSeconds(2)))
+            .ToArray();
+
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception e)
+        {
+            ShowError(e.Message);
+            return;
+        }
+
+        var data = new List<TimeSeriesDataSet>();
+
+        foreach (var (res, def) in tasks.Select((x, i) => (x.Result, _modelForm.DataSourceStorageSource.Queries[i])))
+        {
+            if (res.Status != StatusType.Success)
+            {
+                ShowError(res.Error ?? "Error");
+                return;
+            }
+
+            if (res.ResultType != ResultTypeType.Matrix)
+            {
+                ShowError($"Got {res.ResultType}, but Matrix expected for {def.Query}");
+                return;
+            }
+
+            var m = res.AsMatrix().Result;
+            if (m == null || m.Length != 1)
+            {
+                ShowError($"No data returned for {def.Query}");
+                return;
+            }
+
+            data.Add(
+                new()
+                    {
+                        Name = def.Query,
+                        Color = def.Color,
+                        Data = m[0].Values!.ToList()
+                    }
+            );
+        }
+
+        DisplayData = new() { Series = data };
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleAddModel()
     {
 
     }
@@ -93,9 +274,18 @@
 
     }
 
-    private void HandleAddTableContent()
+    private async Task HandleAddTableContent()
     {
-
+        var interval = new IntervalDefinition
+        {
+            From = MinDate!.Value,
+            To = MaxDate!.Value,
+            Name = "Unknown",
+            Data = DisplayData!.Series
+        };
+        _modelForm!.CurrentModel.IntervalDefinitionList.Add(interval);
+        await ModelService.Store(_modelForm!.CurrentModel);
+        await InvokeAsync(StateHasChanged);
     }
 
     private void HandleDeleteTableContent()
@@ -108,27 +298,15 @@
 
     }
 
-
-    private static List<TableElement> tableElements = new List<TableElement>
+    private void ShowError(string text)
     {
-        new TableElement(new TimeSpan(1),new TimeSpan(1),"cc"),
-        new TableElement(new TimeSpan(1),new TimeSpan(1),"qq")
-    };
-
-    public class TableElement
-    {
-        public TableElement(TimeSpan from, TimeSpan to, string name)
-        {
-            From = from;
-            To = to;
-            Name = name;
-        }
-
-        public TimeSpan From { get; set; }
-
-        public TimeSpan To { get; set; }
-
-        public string Name { get; set; }
-
+        var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add("Text", text);
+    
+        DialogService.Show<Controls.Dialog>("Error", parameters, options);
     }
 }

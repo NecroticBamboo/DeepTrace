@@ -15,6 +15,7 @@ builder.Services.AddHttpClient<PrometheusClient>(c => c.BaseAddress = new UriBui
 builder.Services
     .AddSingleton<IMongoClient>( s => new MongoClient(builder.Configuration.GetValue<string>("Connections:MongoDb") ))
     .AddSingleton<IDataSourceStorageService, DataSourceStorageService>()
+    .AddSingleton<IModelStorageService, ModelStorageService>()
     ;
 
 var app = builder.Build();

@@ -1,4 +1,7 @@
-﻿@using PrometheusAPI;
+﻿@using DeepTrace.Data;
+@using DeepTrace.Services;
+@using PrometheusAPI;
+    using DeepTrace.Data;
 <ApexChart @ref="_chart"
             TItem="TimeSeries"
             Title="Data view"
@@ -19,19 +22,6 @@
 </ApexChart>
 
 @code {
-
-    public class TimeSeriesDataSet
-    {
-        public string Name { get; init; } = "Value";
-        public string Color { get; init; } = "";
-        public IReadOnlyCollection<TimeSeries> Data { get; init; } = Array.Empty<TimeSeries>();
-    }
-
-    public class TimeSeriesData
-    {
-        public List<TimeSeriesDataSet> Series { get; init; } = new List<TimeSeriesDataSet>();
-    }
-
 
     [CascadingParameter]
     protected bool IsDarkMode { get; set; }

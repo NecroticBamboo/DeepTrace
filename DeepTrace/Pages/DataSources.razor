@@ -182,7 +182,7 @@
         }
     }
 
-    private TimeSeriesChart.TimeSeriesData? DisplayData { get; set; }
+    private TimeSeriesData? DisplayData { get; set; }
 
     private string[] _palette = new[]
     {
@@ -312,7 +312,7 @@
             return;
         }
 
-        var data = new List<TimeSeriesChart.TimeSeriesDataSet>();
+        var data = new List<TimeSeriesDataSet>();
 
         foreach ( var (res, def) in tasks.Select((x,i) => (x.Result, _queryForm.Source.Queries[i]) ))
         {
@@ -414,7 +414,7 @@
 
     private int DetectPeriod(MLContext mlContext, IDataView dataView)
     {
-        string inputColumnName = nameof(TimeSeriesData.Value);
+        string inputColumnName = nameof(TimeSeriesDataTutorial.Value);
         int period = mlContext.AnomalyDetection.DetectSeasonality(dataView, inputColumnName);
         Console.WriteLine("Period of the series is: {0}.", period);
         return period;
@@ -423,7 +423,7 @@
     private void DetectAnomaly(MLContext mlContext, IDataView dataView, int period)
     {
         string outputColumnName = nameof(IidSpikePrediction.Prediction);
-        string inputColumnName = nameof(TimeSeriesData.Value);
+        string inputColumnName = nameof(TimeSeriesDataTutorial.Value);
         var options = new SrCnnEntireAnomalyDetectorOptions()
         {
             Threshold = 0.3,
@@ -469,7 +469,7 @@
     private static void DetectSpike(MLContext mLContext, IDataView dataView, TimeSeries[]? data)
     {
         string outputColumnName = nameof(IidSpikePrediction.Prediction);
-        string inputColumnName = nameof(TimeSeriesData.Value);
+        string inputColumnName = nameof(TimeSeriesDataTutorial.Value);
 
         var iidSpikeEstimator = mLContext.Transforms.DetectIidSpike(outputColumnName,
                 inputColumnName, 95.0d, data.Length / 4);
@@ -508,11 +508,11 @@
     }
 
 
-    class TimeSeriesData
+    class TimeSeriesDataTutorial
     {
         public float Value;
-
-        public TimeSeriesData(float value)
+    
+        public TimeSeriesDataTutorial(float value)
         {
             Value = value;
         }
