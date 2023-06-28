@@ -60,6 +60,7 @@
         <MudCard Class="mb-3">
             <MudCardActions>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddTableContent" Disabled="@IsAddDisabled">Add</MudButton>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleRefresh" Disabled="@IsAddDisabled">Refresh</MudButton>
                 <MudSpacer/>
 
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleTrain">Train</MudButton>
@@ -122,7 +123,7 @@
                     return;
                 }
                 _current = value;
-                CurrentModel.DataSourceName = _current.Name;
+                CurrentModel.DataSource = _current;
                 _self.InvokeAsync(_self.HandleShowQuery);
             }
         }
@@ -194,7 +195,7 @@
             _modelDefinitions = models;
 
         _modelForm.CurrentModel = _modelDefinitions[0];
-        var source = _dataSources.FirstOrDefault(x => x.Name == _modelDefinitions[0].DataSourceName);
+        var source = _dataSources.FirstOrDefault(x => x.Name == _modelDefinitions[0].DataSource.Name);
         _modelForm.DataSourceStorageSource = source ?? _dataSources[0];
 
     }
@@ -207,13 +208,21 @@
         var startDate = MinDate ?? (DateTime.UtcNow - TimeSpan.FromDays(30));
         var endDate = MaxDate ?? DateTime.UtcNow;
 
+        await UpdateDisplayData(startDate, endDate);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdateDisplayData(DateTime startDate, DateTime endDate)
+    {
+
         // use automatic step value to always request 500 elements
         var seconds = (endDate - startDate).TotalSeconds / 500.0;
         if (seconds < 1.0)
             seconds = 1.0;
         var step = TimeSpan.FromSeconds(seconds);
 
-        var tasks = _modelForm.DataSourceStorageSource.Queries
+        var tasks = _modelForm!.DataSourceStorageSource.Queries
             .Select(x => Prometheus.RangeQuery(x.Query, startDate, endDate, step, TimeSpan.FromSeconds(2)))
             .ToArray();
 
@@ -261,7 +270,6 @@
         }
 
         DisplayData = new() { Series = data };
-        await InvokeAsync(StateHasChanged);
     }
 
     private void HandleAddModel()
@@ -286,6 +294,19 @@
         _modelForm!.CurrentModel.IntervalDefinitionList.Add(interval);
         await ModelService.Store(_modelForm!.CurrentModel);
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleRefresh()
+    {
+        var previousIntervals = _modelForm!.CurrentModel.IntervalDefinitionList;
+
+        foreach(var currentInterval in previousIntervals)
+        {
+            await UpdateDisplayData(currentInterval.From,currentInterval.To);
+            currentInterval.Data = DisplayData!.Series;
+        }       
+        await ModelService.Store(_modelForm!.CurrentModel);
+        // await InvokeAsync(StateHasChanged);
     }
 
     private void HandleDeleteTableContent()

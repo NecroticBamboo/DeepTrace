@@ -11,7 +11,7 @@
         }
 
         public string Name { get; set; }
-        public string DataSourceName { get; set; } = string.Empty;
+        public DataSourceDefinition DataSource { get; set; } = new();
         public string AIparameters { get; set; } = string.Empty;
         public List<IntervalDefinition> IntervalDefinitionList { get; set; } = new();
     }
