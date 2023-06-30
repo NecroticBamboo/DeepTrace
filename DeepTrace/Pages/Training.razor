@@ -37,11 +37,11 @@
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddModel">Add</MudButton>
                 @if (_modelDefinitions.Count > 1)
                 {
-                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleDelete">Delete</MudButton>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleDeleteModel">Delete</MudButton>
                 }
             </MudCardActions>
             <MudCardActions>
-                <MudSelect T="DataSourceStorage" Label="Data source name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_modelForm!.DataSourceStorageSource">
+                <MudSelect T="DataSourceStorage" Label="Data source name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_modelForm!.DataSource">
                     @foreach (var source in _dataSources)
                     {
                         <MudSelectItem Value="@source">@source.Name</MudSelectItem>
@@ -52,8 +52,6 @@
 
         <MudCard Class="mb-3">
             <MudTextField Label="Model name" T="String" Variant="Variant.Text" InputType="InputType.Search" @bind-Value="_modelForm!.CurrentModel.Name" />
-            <MudTimePicker Label="Start time" @bind-Time="_modelForm.TimeStart"/>
-            <MudTimePicker Label="End time" @bind-Time="_modelForm.TimeEnd" />
             <MudTextField Label="AI parameters" T="String" Variant="Variant.Text" InputType="InputType.Search" />
         </MudCard>
 
@@ -77,7 +75,7 @@
                     <MudTd DataLabel="From">@context.From</MudTd>
                     <MudTd DataLabel="To">@context.To</MudTd>
                     <MudTd DataLabel="Name">@context.Name</MudTd>
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Class="ml-3" OnClick="@HandleDeleteTableContent"></MudIconButton>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Class="ml-3" OnClick="@(()=>HandleDeleteTableContent(context))"></MudIconButton>
                 </RowTemplate>
             </MudTable>
         </MudCard>
@@ -106,30 +104,48 @@
         {
             _self = self;
         }
-        private DataSourceStorage _current = new();
+
+        private ModelStorage _currentModel = new();
         private readonly Training _self;
 
         [Required]
-        public DataSourceStorage DataSourceStorageSource
+        public DataSourceStorage DataSource
         {
             get
             {
-                return _current;
+                return _currentModel.DataSource;
             }
             set
             {
-                if(_current == value)
+                if(_currentModel.DataSource == value)
                 {
                     return;
                 }
-                _current = value;
-                CurrentModel.DataSource = _current;
+                _currentModel.DataSource = value;
+                _self.InvokeAsync(_self.HandleRefresh);
                 _self.InvokeAsync(_self.HandleShowQuery);
             }
         }
 
         [Required]
-        public ModelStorage CurrentModel { get; set; } = new();
+        public ModelStorage CurrentModel 
+        {
+            get
+            {
+                return _currentModel;
+            }
+            set
+            {
+                if (_currentModel == value)
+                {
+                    return;
+                }
+                _currentModel = value;
+                _self.InvokeAsync(_self.HandleShowQuery);
+                _self.StateHasChanged();
+                
+            }
+        }
 
         public DateRange Dates { get; set; } = new DateRange(DateTime.UtcNow.Date - TimeSpan.FromDays(14), DateTime.UtcNow.Date);
 
@@ -196,13 +212,13 @@
 
         _modelForm.CurrentModel = _modelDefinitions[0];
         var source = _dataSources.FirstOrDefault(x => x.Name == _modelDefinitions[0].DataSource.Name);
-        _modelForm.DataSourceStorageSource = source ?? _dataSources[0];
+        _modelForm.DataSource = source ?? _dataSources[0];
 
     }
 
     private async Task HandleShowQuery()
     {
-        if (_modelForm!.DataSourceStorageSource.Queries.Count < 1 || string.IsNullOrWhiteSpace(_modelForm.DataSourceStorageSource.Queries[0].Query) || _modelForm.Dates.End == null || _modelForm.Dates.Start == null)
+        if (_modelForm!.DataSource.Queries.Count < 1 || string.IsNullOrWhiteSpace(_modelForm.DataSource.Queries[0].Query) || _modelForm.Dates.End == null || _modelForm.Dates.Start == null)
             return;
 
         var startDate = MinDate ?? (DateTime.UtcNow - TimeSpan.FromDays(30));
@@ -222,7 +238,7 @@
             seconds = 1.0;
         var step = TimeSpan.FromSeconds(seconds);
 
-        var tasks = _modelForm!.DataSourceStorageSource.Queries
+        var tasks = _modelForm!.DataSource.Queries
             .Select(x => Prometheus.RangeQuery(x.Query, startDate, endDate, step, TimeSpan.FromSeconds(2)))
             .ToArray();
 
@@ -238,7 +254,7 @@
 
         var data = new List<TimeSeriesDataSet>();
 
-        foreach (var (res, def) in tasks.Select((x, i) => (x.Result, _modelForm.DataSourceStorageSource.Queries[i])))
+        foreach (var (res, def) in tasks.Select((x, i) => (x.Result, _modelForm.DataSource.Queries[i])))
         {
             if (res.Status != StatusType.Success)
             {
@@ -274,12 +290,35 @@
 
     private void HandleAddModel()
     {
-
+        _modelDefinitions.Add(new());
+        _modelForm.CurrentModel = _modelDefinitions[^1];
+        StateHasChanged();
     }
 
-    private void HandleDelete()
+    private void HandleDeleteModel()
     {
+        if (_modelDefinitions.Count < 2)
+        {
+            return;
+        }
 
+        var pos = _modelDefinitions.IndexOf(_modelForm!.CurrentModel);
+        if (pos < 0)
+        {
+            ShowError("Not found");
+            return;
+        }
+
+        var toDelete = _modelDefinitions[pos];
+        _modelDefinitions.RemoveAt(pos);
+        _modelForm.CurrentModel = _modelDefinitions[pos < _modelDefinitions.Count ? pos : _modelDefinitions.Count - 1];
+
+        if (toDelete.Id != null)
+        {
+            ModelService.Delete(toDelete);
+        }
+
+        StateHasChanged();
     }
 
     private async Task HandleAddTableContent()
@@ -309,14 +348,11 @@
         // await InvokeAsync(StateHasChanged);
     }
 
-    private void HandleDeleteTableContent()
+    private async Task HandleDeleteTableContent(IntervalDefinition interval)
     {
-
-    }
-
-    private void HandleTrain()
-    {
-
+        _modelForm!.CurrentModel.IntervalDefinitionList.Remove(interval);
+        await ModelService.Store(_modelForm!.CurrentModel);
+        await InvokeAsync(StateHasChanged);
     }
 
     private void ShowError(string text)
@@ -329,5 +365,10 @@
         parameters.Add("Text", text);
     
         DialogService.Show<Controls.Dialog>("Error", parameters, options);
+    }
+
+    private void HandleTrain()
+    {
+
     }
 }

@@ -52,7 +52,7 @@ namespace DeepTrace.Services
             var db = _client.GetDatabase(MongoDBDatabaseName);
             var collection = db.GetCollection<DataSourceStorage>(MongoDBCollection);
 
-            await collection.DeleteOneAsync($"_id = {source.Id}");
+            await collection.DeleteOneAsync(filter: new BsonDocument("_id", source.Id));
         }
     }
 }

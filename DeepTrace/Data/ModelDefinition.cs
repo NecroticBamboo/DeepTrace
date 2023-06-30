@@ -1,4 +1,6 @@
-﻿namespace DeepTrace.Data
+﻿using DeepTrace.Services;
+
+namespace DeepTrace.Data
 {
 
     public class ModelDefinition
@@ -11,7 +13,7 @@
         }
 
         public string Name { get; set; }
-        public DataSourceDefinition DataSource { get; set; } = new();
+        public DataSourceStorage DataSource { get; set; } = new();
         public string AIparameters { get; set; } = string.Empty;
         public List<IntervalDefinition> IntervalDefinitionList { get; set; } = new();
     }
