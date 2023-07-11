@@ -9,6 +9,8 @@
 @inject IDialogService DialogService
 @inject IDataSourceStorageService StorageService
 @inject IModelStorageService ModelService
+@inject NavigationManager NavManager
+@inject IJSRuntime Js
 
 
 <PageTitle>Training</PageTitle>
@@ -59,6 +61,7 @@
             <MudCardActions>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddTableContent" Disabled="@IsAddDisabled">Add</MudButton>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleRefresh" Disabled="@IsAddDisabled">Refresh</MudButton>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleExport" Disabled="@IsAddDisabled">Export</MudButton>
                 <MudSpacer/>
 
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleTrain">Train</MudButton>
@@ -143,7 +146,7 @@
                 _currentModel = value;
                 _self.InvokeAsync(_self.HandleShowQuery);
                 _self.StateHasChanged();
-                
+
             }
         }
 
@@ -346,6 +349,12 @@
         }       
         await ModelService.Store(_modelForm!.CurrentModel);
         // await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleExport()
+    {
+        await Js.InvokeVoidAsync("open", $"{NavManager.BaseUri}api/download/mldata/{Uri.EscapeDataString(_modelForm.CurrentModel.Name)}", "_blank");
+
     }
 
     private async Task HandleDeleteTableContent(IntervalDefinition interval)

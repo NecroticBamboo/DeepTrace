@@ -18,4 +18,8 @@
     <ProjectReference Include="..\PrometheusAPI\PrometheusAPI.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Data\ExportedData\" />
+  </ItemGroup>
+
 </Project>

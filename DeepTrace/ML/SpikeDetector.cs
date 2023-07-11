@@ -4,12 +4,13 @@ using Microsoft.ML.Data;
 using PrometheusAPI;
 using System.Data;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace DeepTrace.ML
 {
     public class SpikeDetector : IMLProcessor
     {
-        private readonly Dictionary<string, (MLContext Context, DataViewSchema Schema, ITransformer Transformer)> _model = new();
+        private readonly Dictionary<string, ModelRecord> _model = new();
 
         public void Fit(ModelDefinition modelDef, DataSourceDefinition dataSourceDef)
         {
@@ -44,7 +45,11 @@ namespace DeepTrace.ML
             foreach ( var (name, model) in _model)
             {
                 mem.WriteString(name);
-                model.Context.Model.Save(model.Transformer, model.Schema, mem);
+                
+                var bytes = MLHelpers.ExportSingleModel(model);
+                
+                mem.WriteInt(bytes.Length);
+                mem.Write(bytes);
             }
 
             return mem.ToArray();
@@ -62,11 +67,14 @@ namespace DeepTrace.ML
             for ( var i = 0; i < count; i++ )
             {
                 var name = mem.ReadString();
+                var size = mem.ReadInt();
+                var bytes = new byte[size];
 
-                var mlContext = new MLContext();
-                var transformer = mlContext.Model.Load(mem, out var schema);
+                mem.Read(bytes, 0, bytes.Length);
+
+                var model = MLHelpers.ImportSingleModel(bytes);
                 
-                _model[name] = (mlContext, schema, transformer);
+                _model[name] = model;
             }
         }
 
@@ -77,15 +85,13 @@ namespace DeepTrace.ML
 
         // -------------------------- internals
 
-
-
         class SpikePrediction
         {
             [VectorType(3)]
             public double[] Prediction { get; set; } = new double[3];
         }
 
-        private static (MLContext Context, DataViewSchema Schema, ITransformer Transformer) FitOne(List<TimeSeries> dataSet)
+        private static ModelRecord FitOne(List<TimeSeries> dataSet)
         {
             var mlContext = new MLContext();
             var dataView  = mlContext.Data.LoadFromEnumerable(dataSet);
@@ -96,7 +102,7 @@ namespace DeepTrace.ML
             var iidSpikeEstimator = mlContext.Transforms.DetectIidSpike(outputColumnName,inputColumnName, 95.0d, dataSet.Count);
             var transformer = iidSpikeEstimator.Fit(dataView);
 
-            return (mlContext, dataView.Schema, transformer);
+            return new (mlContext, dataView.Schema, transformer);
         }
     }
 }

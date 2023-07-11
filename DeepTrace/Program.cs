@@ -29,7 +29,7 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 
 app.UseRouting();
-
+app.MapControllerRoute("default","{controller}/{action}");
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
