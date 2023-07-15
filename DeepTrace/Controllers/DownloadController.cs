@@ -24,6 +24,7 @@ namespace DeepTrace.Controllers
 
             var current = previousIntervals.First();
             var headers = string.Join(",", current.Data.Select((x, i) => $"Q{i + 1}min,Q{i + 1}max,Q{i + 1}avg,Q{i + 1}mean"));
+            headers += string.Join(",",",Name");
 
 
             var writer = new StringBuilder();
@@ -41,16 +42,10 @@ namespace DeepTrace.Controllers
                     var avg = queryData.Data.Average(x => x.Value);
                     var mean = queryData.Data.Sum(x => x.Value) / queryData.Data.Count;
 
-                    if (i == currentInterval.Data.Count - 1)
-                    {
-                        data += min + "," + max + "," + avg + "," + mean;
-                    }
-                    else
-                    {
-                        data += min + "," + max + "," + avg + "," + mean + ",";
-                    }
+                    data += min + "," + max + "," + avg + "," + mean + ",";
 
                 }
+                data += currentInterval.Name;
                 writer.AppendLine(data);
             }
             return new(Encoding.UTF8.GetBytes(writer.ToString()),"text/csv")

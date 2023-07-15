@@ -67,7 +67,17 @@
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleTrain">Train</MudButton>
             </MudCardActions>
 
-            <MudTable Items="@_modelForm!.CurrentModel.IntervalDefinitionList" Hover="true" Breakpoint="Breakpoint.Sm" T="IntervalDefinition">
+            <MudTable 
+                Items="@_modelForm!.CurrentModel.IntervalDefinitionList" 
+                Hover="true" 
+                FixedHeader="@fixed_header"
+                CanCancelEdit="@canCancelEdit" 
+                RowEditPreview="@BackupInterval"
+                RowEditCancel="ResetItemToOriginalValues"
+                RowEditCommit="ItemHasBeenCommitted"
+                Breakpoint="Breakpoint.Sm"
+                T="IntervalDefinition"
+            >
                 <HeaderContent>
                     <MudTh>From</MudTh>
                     <MudTh>To</MudTh>
@@ -80,6 +90,14 @@
                     <MudTd DataLabel="Name">@context.Name</MudTd>
                     <MudIconButton Icon="@Icons.Material.Filled.Delete" Class="ml-3" OnClick="@(()=>HandleDeleteTableContent(context))"></MudIconButton>
                 </RowTemplate>
+                <RowEditingTemplate>
+                    <MudTd DataLabel="From">@context.From</MudTd>
+                    <MudTd DataLabel="To">@context.To</MudTd>
+                    <MudTd DataLabel="Name">
+                        <MudTextField @bind-Value="@context.Name" Required />
+                    </MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Class="ml-3" OnClick="@(()=>HandleDeleteTableContent(context))"></MudIconButton>
+                </RowEditingTemplate>
             </MudTable>
         </MudCard>
     </MudItem>
@@ -100,6 +118,9 @@
 
     private bool IsChartHidden => DisplayData == null;
     private bool IsChartShown => !IsChartHidden;
+    private bool fixed_header = true;
+    private bool canCancelEdit = true;
+    private string _nameBackUp = "";
 
     private class ModelForm
     {
@@ -336,6 +357,28 @@
         _modelForm!.CurrentModel.IntervalDefinitionList.Add(interval);
         await ModelService.Store(_modelForm!.CurrentModel);
         await InvokeAsync(StateHasChanged);
+    }
+
+    private void BackupInterval(object element)
+    {
+        if(element is IntervalDefinition interval)
+        {
+            _nameBackUp = interval.Name;
+        }
+
+    }
+
+    private void ResetItemToOriginalValues(object element)
+    {
+        if (element is IntervalDefinition interval)
+        {
+            interval.Name = _nameBackUp;
+        }
+    }
+
+    private void ItemHasBeenCommitted(object element)
+    {
+        Task.Run(async ()=>ModelService.Store(_modelForm!.CurrentModel));
     }
 
     private async Task HandleRefresh()
