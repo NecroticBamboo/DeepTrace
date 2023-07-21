@@ -1,14 +1,17 @@
 ﻿@page "/training"
 @using DeepTrace.Data;
+@using DeepTrace.ML;
 @using DeepTrace.Services;
 @using System.ComponentModel.DataAnnotations;
 @using DeepTrace.Controls;
+@using Microsoft.ML;
 @using PrometheusAPI;
 
 @inject PrometheusClient Prometheus
 @inject IDialogService DialogService
 @inject IDataSourceStorageService StorageService
 @inject IModelStorageService ModelService
+@inject IEstimatorBuilder EstimatorBuilder
 @inject NavigationManager NavManager
 @inject IJSRuntime Js
 
@@ -71,6 +74,7 @@
                 Items="@_modelForm!.CurrentModel.IntervalDefinitionList" 
                 Hover="true" 
                 FixedHeader="@fixed_header"
+                Height="400px"
                 CanCancelEdit="@canCancelEdit" 
                 RowEditPreview="@BackupInterval"
                 RowEditCancel="ResetItemToOriginalValues"
@@ -415,12 +419,17 @@
             };
         var parameters = new DialogParameters();
         parameters.Add("Text", text);
-    
+
         DialogService.Show<Controls.Dialog>("Error", parameters, options);
     }
 
     private void HandleTrain()
     {
+        var mlContext = new MLContext();
+        var pipeline = EstimatorBuilder.BuildPipeline(mlContext, _modelForm!.CurrentModel);
 
+        
     }
+
+    
 }

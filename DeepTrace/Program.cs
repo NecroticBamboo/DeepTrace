@@ -2,6 +2,7 @@ using MudBlazor.Services;
 using PrometheusAPI;
 using MongoDB.Driver;
 using DeepTrace.Services;
+using DeepTrace.ML;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,7 @@ builder.Services
     .AddSingleton<IMongoClient>( s => new MongoClient(builder.Configuration.GetValue<string>("Connections:MongoDb") ))
     .AddSingleton<IDataSourceStorageService, DataSourceStorageService>()
     .AddSingleton<IModelStorageService, ModelStorageService>()
+    .AddSingleton<IEstimatorBuilder, EstimatorBuilder>()
     ;
 
 var app = builder.Build();
