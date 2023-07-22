@@ -10,7 +10,7 @@
 @inject PrometheusClient Prometheus
 @inject IDialogService DialogService
 @inject IDataSourceStorageService StorageService
-@inject IModelStorageService ModelService
+@inject IModelDefinitionService ModelService
 @inject IEstimatorBuilder EstimatorBuilder
 @inject NavigationManager NavManager
 @inject IJSRuntime Js
@@ -32,7 +32,7 @@
 
         <MudCard Class="mb-3">
             <MudCardActions>
-                <MudSelect T="ModelStorage" Label="Model name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_modelForm!.CurrentModel">
+                <MudSelect T="ModelDefinition" Label="Model name" AnchorOrigin="Origin.BottomCenter" @bind-Value="_modelForm!.CurrentModel">
                     @foreach (var model in _modelDefinitions)
                     {
                         <MudSelectItem Value="@model">@model.Name</MudSelectItem>
@@ -133,7 +133,7 @@
             _self = self;
         }
 
-        private ModelStorage _currentModel = new();
+        private ModelDefinition _currentModel = new();
         private readonly Training _self;
 
         [Required]
@@ -156,7 +156,7 @@
         }
 
         [Required]
-        public ModelStorage CurrentModel 
+        public ModelDefinition CurrentModel 
         {
             get
             {
@@ -191,7 +191,7 @@
     private ModelForm? _modelForm;
     private TimeSeriesData? DisplayData { get; set; }
     private List<DataSourceStorage> _dataSources = new();
-    private List<ModelStorage> _modelDefinitions = new() {new()};
+    private List<ModelDefinition> _modelDefinitions = new() {new()};
 
     private DateTime? _minDate;
     private DateTime? _maxDate;
@@ -423,12 +423,13 @@
         DialogService.Show<Controls.Dialog>("Error", parameters, options);
     }
 
-    private void HandleTrain()
+    private async Task HandleTrain()
     {
-        var mlContext = new MLContext();
-        var pipeline = EstimatorBuilder.BuildPipeline(mlContext, _modelForm!.CurrentModel);
+        var mlProcessor = new MLProcessor();
+        await mlProcessor.Train(_modelForm!.CurrentModel);
+        var bytes = mlProcessor.Export();
 
-        
+        //save to Mongo
     }
 
     

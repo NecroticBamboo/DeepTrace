@@ -1,4 +1,7 @@
-﻿using Microsoft.ML;
+﻿using DeepTrace.Data;
+using DeepTrace.Services;
+using Microsoft.ML;
+using Microsoft.ML.Data;
 
 namespace DeepTrace.ML;
 
@@ -20,5 +23,23 @@ public static class MLHelpers
         var transformer = mlContext.Model.Load(mem, out var schema);
 
         return new (mlContext, schema, transformer);
+    }
+
+    public static async Task<(IDataView View, string FileName)> Convert(MLContext mlContext, ModelDefinition model)
+    {
+        var csv = model.ToCsv();
+        var fileName = Path.GetTempFileName();
+
+        await File.WriteAllTextAsync(fileName, csv);
+
+        var columnNames = model.GetColumnNames();
+        var columns     = columnNames
+            .Select((x,i) => new TextLoader.Column(x, DataKind.Double, i))
+            .ToArray()
+            ;
+
+        var view = mlContext.Data.LoadFromTextFile(fileName, columns, separatorChar: ',', hasHeader: true, allowQuoting: true, trimWhitespace: true);
+
+        return (view, fileName);
     }
 }

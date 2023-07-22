@@ -8,9 +8,9 @@ namespace DeepTrace.Controllers
     [Route("api/[controller]")]
     public class DownloadController : Controller
     {
-        private readonly IModelStorageService _modelService;
+        private readonly IModelDefinitionService _modelService;
 
-        public DownloadController(IModelStorageService modelService)
+        public DownloadController(IModelDefinitionService modelService)
         {
             _modelService = modelService;
         }
@@ -18,37 +18,11 @@ namespace DeepTrace.Controllers
         [HttpGet("mldata/{modelName}")]
         public async Task<FileContentResult> GetMLDataCsv([FromRoute] string modelName)
         {
-            var modelStorage = await _modelService.Load();
-            var model = modelStorage.FirstOrDefault(x=>x.Name==modelName) ?? throw new ApplicationException($"Model {modelName} not found");
-            var previousIntervals = model.IntervalDefinitionList;
+            var ModelDefinition = await _modelService.Load();
+            var model = ModelDefinition.FirstOrDefault(x=>x.Name==modelName) ?? throw new ApplicationException($"Model {modelName} not found");
 
-            var current = previousIntervals.First();
-            var headers = string.Join(",", current.Data.Select((x, i) => $"Q{i + 1}min,Q{i + 1}max,Q{i + 1}avg,Q{i + 1}mean"));
-            headers += string.Join(",",",Name");
-
-
-            var writer = new StringBuilder();
-            writer.AppendLine(headers);
-
-            foreach (var currentInterval in previousIntervals)
-            {
-                var data = "";
-                for (var i = 0; i < currentInterval.Data.Count; i++)
-                {
-
-                    var queryData = currentInterval.Data[i];
-                    var min = queryData.Data.Min(x => x.Value);
-                    var max = queryData.Data.Max(x => x.Value);
-                    var avg = queryData.Data.Average(x => x.Value);
-                    var mean = queryData.Data.Sum(x => x.Value) / queryData.Data.Count;
-
-                    data += min + "," + max + "," + avg + "," + mean + ",";
-
-                }
-                data += currentInterval.Name;
-                writer.AppendLine(data);
-            }
-            return new(Encoding.UTF8.GetBytes(writer.ToString()),"text/csv")
+            var csv = model.ToCsv();
+            return new(Encoding.UTF8.GetBytes(csv),"text/csv")
             { 
                 FileDownloadName = modelName+".csv" 
             };

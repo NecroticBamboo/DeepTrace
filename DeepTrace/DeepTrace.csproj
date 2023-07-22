@@ -15,16 +15,4 @@
   <ItemGroup>
     <ProjectReference Include="..\PrometheusAPI\PrometheusAPI.csproj" />
   </ItemGroup>
-  <ItemGroup Label="MLModel1">
-    <None Include="MLModel1.consumption.cs">
-      <DependentUpon>MLModel1.mbconfig</DependentUpon>
-    </None>
-    <None Include="MLModel1.training.cs">
-      <DependentUpon>MLModel1.mbconfig</DependentUpon>
-    </None>
-    <None Include="MLModel1.zip">
-      <DependentUpon>MLModel1.mbconfig</DependentUpon>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
 </Project>

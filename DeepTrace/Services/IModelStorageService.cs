@@ -1,19 +1,15 @@
 ﻿using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson;
 using DeepTrace.Data;
+using System.Text;
 
 namespace DeepTrace.Services
 {
-    public class ModelStorage : ModelDefinition
-    {
-        [BsonId]
-        public ObjectId? Id { get; set; }
-    }
 
-    public interface IModelStorageService
+    public interface IModelDefinitionService
     {
-        Task Delete(ModelStorage source, bool ignoreNotStored = false);
-        Task<List<ModelStorage>> Load();
-        Task Store(ModelStorage source);
+        Task Delete(ModelDefinition source, bool ignoreNotStored = false);
+        Task<List<ModelDefinition>> Load();
+        Task Store(ModelDefinition source);
     }
 }

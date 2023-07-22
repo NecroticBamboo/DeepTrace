@@ -1,6 +1,390 @@
 ﻿{
-  "TrainingTime": 0,
-  "Scenario": "Default",
+  "TrainingTime": 30,
+  "Scenario": "Classification",
+  "DataSource": {
+    "Type": "TabularFile",
+    "Version": 1,
+    "FilePath": "D:\\Downloads\\Model #4(1).csv",
+    "Delimiter": ",",
+    "DecimalMarker": ".",
+    "HasHeader": true,
+    "ColumnProperties": [
+      {
+        "ColumnName": "Q1min",
+        "ColumnPurpose": "Ignore",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q1max",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q1avg",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q1mean",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q2min",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q2max",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q2avg",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q2mean",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q3min",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q3max",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q3avg",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q3mean",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q4min",
+        "ColumnPurpose": "Ignore",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q4max",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q4avg",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q4mean",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q5min",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q5max",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q5avg",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Q5mean",
+        "ColumnPurpose": "Feature",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      },
+      {
+        "ColumnName": "Name",
+        "ColumnPurpose": "Label",
+        "ColumnDataFormat": "String",
+        "IsCategorical": false,
+        "Type": "Column",
+        "Version": 2
+      }
+    ]
+  },
+  "Environment": {
+    "Type": "LocalCPU",
+    "Version": 1
+  },
+  "RunHistory": {
+    "Version": 1,
+    "Type": "Result",
+    "Trials": [
+      {
+        "Version": 0,
+        "Type": "Trial",
+        "TrainerName": "SdcaMaximumEntropyMulti",
+        "Score": 0.87460317460317472,
+        "RuntimeInSeconds": 5.47599983215332
+      },
+      {
+        "Version": 0,
+        "Type": "Trial",
+        "TrainerName": "FastForestOva",
+        "Score": 0.91460317460317475,
+        "RuntimeInSeconds": 3.6610000133514404
+      },
+      {
+        "Version": 0,
+        "Type": "Trial",
+        "TrainerName": "FastTreeOva",
+        "Score": 0.91460317460317475,
+        "RuntimeInSeconds": 3.2239999771118164
+      },
+      {
+        "Version": 0,
+        "Type": "Trial",
+        "TrainerName": "LbfgsLogisticRegressionOva",
+        "Score": 0.96035353535353529,
+        "RuntimeInSeconds": 2.812000036239624
+      },
+      {
+        "Version": 0,
+        "Type": "Trial",
+        "TrainerName": "SdcaLogisticRegressionOva",
+        "Score": 0.87460317460317472,
+        "RuntimeInSeconds": 7.8530001640319824
+      },
+      {
+        "Version": 0,
+        "Type": "Trial",
+        "TrainerName": "LbfgsMaximumEntropyMulti",
+        "Score": 0.96035353535353529,
+        "RuntimeInSeconds": 2.3250000476837158
+      },
+      {
+        "Version": 0,
+        "Type": "Trial",
+        "TrainerName": "LightGbmMulti",
+        "Score": 0.91460317460317475,
+        "RuntimeInSeconds": 2.875
+      }
+    ],
+    "Pipeline": {
+      "parameter": {
+        "0": {
+          "InputColumnName": "Q1max",
+          "OutputColumnName": "Q1max"
+        },
+        "1": {
+          "InputColumnName": "Q1avg",
+          "OutputColumnName": "Q1avg"
+        },
+        "10": {
+          "InputColumnName": "Q3mean",
+          "OutputColumnName": "Q3mean"
+        },
+        "11": {
+          "InputColumnName": "Q4max",
+          "OutputColumnName": "Q4max"
+        },
+        "12": {
+          "InputColumnName": "Q4avg",
+          "OutputColumnName": "Q4avg"
+        },
+        "13": {
+          "InputColumnName": "Q4mean",
+          "OutputColumnName": "Q4mean"
+        },
+        "14": {
+          "InputColumnName": "Q5min",
+          "OutputColumnName": "Q5min"
+        },
+        "15": {
+          "InputColumnName": "Q5max",
+          "OutputColumnName": "Q5max"
+        },
+        "16": {
+          "InputColumnName": "Q5avg",
+          "OutputColumnName": "Q5avg"
+        },
+        "17": {
+          "InputColumnName": "Q5mean",
+          "OutputColumnName": "Q5mean"
+        },
+        "18": {
+          "InputColumnNames": [
+            "Q1max",
+            "Q1avg",
+            "Q1mean",
+            "Q2min",
+            "Q2max",
+            "Q2avg",
+            "Q2mean",
+            "Q3min",
+            "Q3max",
+            "Q3avg",
+            "Q3mean",
+            "Q4max",
+            "Q4avg",
+            "Q4mean",
+            "Q5min",
+            "Q5max",
+            "Q5avg",
+            "Q5mean"
+          ],
+          "OutputColumnName": "Features"
+        },
+        "19": {
+          "OutputColumnName": "Name",
+          "InputColumnName": "Name"
+        },
+        "2": {
+          "InputColumnName": "Q1mean",
+          "OutputColumnName": "Q1mean"
+        },
+        "20": {
+          "OutputColumnNames": [
+            "Features"
+          ],
+          "InputColumnNames": [
+            "Features"
+          ]
+        },
+        "21": {
+          "L1Regularization": 1.0,
+          "L2Regularization": 1.0,
+          "LabelColumnName": "Name",
+          "FeatureColumnName": "Features"
+        },
+        "22": {
+          "OutputColumnName": "PredictedLabel",
+          "InputColumnName": "PredictedLabel"
+        },
+        "3": {
+          "InputColumnName": "Q2min",
+          "OutputColumnName": "Q2min"
+        },
+        "4": {
+          "InputColumnName": "Q2max",
+          "OutputColumnName": "Q2max"
+        },
+        "5": {
+          "InputColumnName": "Q2avg",
+          "OutputColumnName": "Q2avg"
+        },
+        "6": {
+          "InputColumnName": "Q2mean",
+          "OutputColumnName": "Q2mean"
+        },
+        "7": {
+          "InputColumnName": "Q3min",
+          "OutputColumnName": "Q3min"
+        },
+        "8": {
+          "InputColumnName": "Q3max",
+          "OutputColumnName": "Q3max"
+        },
+        "9": {
+          "InputColumnName": "Q3avg",
+          "OutputColumnName": "Q3avg"
+        }
+      },
+      "estimators": [
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "FeaturizeText",
+        "Concatenate",
+        "MapValueToKey",
+        "NormalizeMinMax",
+        "LbfgsLogisticRegressionOva",
+        "MapKeyToValue"
+      ]
+    },
+    "MetricName": "MicroAccuracy"
+  },
   "Type": "TrainingConfig",
   "Version": 2
 }
