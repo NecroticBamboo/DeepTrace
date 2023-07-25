@@ -13,12 +13,12 @@ namespace DeepTrace.ML
         private DataViewSchema? _schema;
         private ITransformer? _transformer;
 
-        private string Name { get; set; }
+        private string Name { get; set; } = "TestModel";
 
         public async Task Train(ModelDefinition modelDef)
         {
             var pipeline = _estimatorBuilder.BuildPipeline(_mlContext, modelDef);
-            var (data, filename) = await MLHelpers.Convert(_mlContext,modelDef);
+            var (data, filename) = await MLHelpers.Convert(_mlContext, modelDef);
             try
             {
                 _schema = data.Schema;

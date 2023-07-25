@@ -34,7 +34,7 @@ public static class MLHelpers
 
         var columnNames = model.GetColumnNames();
         var columns     = columnNames
-            .Select((x,i) => new TextLoader.Column(x, DataKind.Double, i))
+            .Select((x,i) => new TextLoader.Column(x, DataKind.String, i))
             .ToArray()
             ;
 

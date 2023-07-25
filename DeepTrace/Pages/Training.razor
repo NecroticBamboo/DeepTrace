@@ -6,11 +6,13 @@
 @using DeepTrace.Controls;
 @using Microsoft.ML;
 @using PrometheusAPI;
+@using System.Text;
 
 @inject PrometheusClient Prometheus
 @inject IDialogService DialogService
 @inject IDataSourceStorageService StorageService
-@inject IModelDefinitionService ModelService
+@inject IModelStorageService ModelService
+@inject ITrainedModelStorageService TrainedModelService
 @inject IEstimatorBuilder EstimatorBuilder
 @inject NavigationManager NavManager
 @inject IJSRuntime Js
@@ -64,11 +66,23 @@
             <MudCardActions>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleAddTableContent" Disabled="@IsAddDisabled">Add</MudButton>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleRefresh" Disabled="@IsAddDisabled">Refresh</MudButton>
+                <MudFileUpload T="IBrowserFile" Accept=".csv" FilesChanged="@HandleImport" MaximumFileCount="1" Class="ml-3">
+                    <ButtonTemplate>
+                        <MudButton HtmlTag="label"
+                                   Variant="Variant.Filled"
+                                   Color="MudBlazor.Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                                   for="@context">
+                            Import
+                        </MudButton>
+                    </ButtonTemplate>
+                </MudFileUpload>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleExport" Disabled="@IsAddDisabled">Export</MudButton>
                 <MudSpacer/>
 
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleTrain">Train</MudButton>
             </MudCardActions>
+            
 
             <MudTable 
                 Items="@_modelForm!.CurrentModel.IntervalDefinitionList" 
@@ -233,6 +247,9 @@
 
         var sources = await StorageService.Load();
         var models = await ModelService.Load();
+        var trainedModels = await TrainedModelService.Load();
+        IList<IBrowserFile> files = new List<IBrowserFile>();
+
         if (sources.Count > 0)
             _dataSources = sources;
         if (models.Count > 0)
@@ -398,6 +415,18 @@
         // await InvokeAsync(StateHasChanged);
     }
 
+    //Doesn't work
+    private async Task HandleImport(IBrowserFile file)
+    {
+        var result = new StringBuilder();
+        var reader = new StreamReader(file.OpenReadStream(file.Size));
+
+        while (reader.Peek() >= 0)
+            result.AppendLine(await reader.ReadLineAsync());
+        
+        result.ToString();
+    }
+
     private async Task HandleExport()
     {
         await Js.InvokeVoidAsync("open", $"{NavManager.BaseUri}api/download/mldata/{Uri.EscapeDataString(_modelForm.CurrentModel.Name)}", "_blank");
@@ -428,8 +457,14 @@
         var mlProcessor = new MLProcessor();
         await mlProcessor.Train(_modelForm!.CurrentModel);
         var bytes = mlProcessor.Export();
-
+        
         //save to Mongo
+        var trainedModel = new TrainedModelDefinition
+        {
+            Name = "TrainedModel",
+            Value = bytes
+        };
+        await TrainedModelService.Store(trainedModel);
     }
 
     

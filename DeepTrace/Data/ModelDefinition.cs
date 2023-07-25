@@ -29,14 +29,14 @@ public class ModelDefinition
         {
             columnNames.AddRange(measureNames.Select(x => $"{item.Query}_{x}"));
         }
-
+        columnNames.Add("Name");
         return columnNames;
     }
 
     public string ToCsv()
     {
         var current = IntervalDefinitionList.First();
-        var headers = string.Join(",", GetColumnNames().Select(x=>$"\"{x}\"")) + ",Name";
+        var headers = string.Join(",", GetColumnNames().Select(x=>$"\"{x}\""));
 
 
         var writer = new StringBuilder();

@@ -6,7 +6,7 @@ using System.Text;
 namespace DeepTrace.Services
 {
 
-    public interface IModelDefinitionService
+    public interface IModelStorageService
     {
         Task Delete(ModelDefinition source, bool ignoreNotStored = false);
         Task<List<ModelDefinition>> Load();

@@ -4,31 +4,30 @@ using MongoDB.Driver;
 
 namespace DeepTrace.Services
 {
-    public class ModelStorageService : IModelStorageService
+    public class TrainedModelStorageService: ITrainedModelStorageService
     {
-
         private const string MongoDBDatabaseName = "DeepTrace";
-        private const string MongoDBCollection = "Models";
+        private const string MongoDBCollection = "TrainedModels";
 
         private readonly IMongoClient _client;
 
-        public ModelStorageService(IMongoClient client)
+        public TrainedModelStorageService(IMongoClient client)
         {
             _client = client;
         }
 
-        public async Task<List<ModelDefinition>> Load()
+        public async Task<List<TrainedModelDefinition>> Load()
         {
             var db = _client.GetDatabase(MongoDBDatabaseName);
-            var collection = db.GetCollection<ModelDefinition>(MongoDBCollection);
+            var collection = db.GetCollection<TrainedModelDefinition>(MongoDBCollection);
 
             var res = await (await collection.FindAsync("{}")).ToListAsync();
             return res;
         }
-        public async Task Store(ModelDefinition source)
+        public async Task Store(TrainedModelDefinition source)
         {
             var db = _client.GetDatabase(MongoDBDatabaseName);
-            var collection = db.GetCollection<ModelDefinition>(MongoDBCollection);
+            var collection = db.GetCollection<TrainedModelDefinition>(MongoDBCollection);
 
             if (source.Id == null)
                 source.Id = ObjectId.GenerateNewId();
@@ -41,7 +40,7 @@ namespace DeepTrace.Services
                 );
         }
 
-        public async Task Delete(ModelDefinition source, bool ignoreNotStored = false)
+        public async Task Delete(TrainedModelDefinition source, bool ignoreNotStored = false)
         {
             if (source.Id == null)
             {
@@ -51,7 +50,7 @@ namespace DeepTrace.Services
             }
 
             var db = _client.GetDatabase(MongoDBDatabaseName);
-            var collection = db.GetCollection<ModelDefinition>(MongoDBCollection);
+            var collection = db.GetCollection<TrainedModelDefinition>(MongoDBCollection);
 
             await collection.DeleteOneAsync(filter: new BsonDocument("_id", source.Id));
         }

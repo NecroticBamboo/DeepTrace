@@ -8,9 +8,9 @@ namespace DeepTrace.Controllers
     [Route("api/[controller]")]
     public class DownloadController : Controller
     {
-        private readonly IModelDefinitionService _modelService;
+        private readonly IModelStorageService _modelService;
 
-        public DownloadController(IModelDefinitionService modelService)
+        public DownloadController(IModelStorageService modelService)
         {
             _modelService = modelService;
         }
