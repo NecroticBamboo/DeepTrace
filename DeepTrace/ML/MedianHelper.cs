@@ -13,7 +13,7 @@ public static class MedianHelper
     /// Pivot is selected ranodmly if random number generator is supplied else its selected as last element in the list.
     /// Reference: Introduction to Algorithms 3rd Edition, Corman et al, pp 171
     /// </summary>
-    private static int Partition<T>(this IList<T> list, int start, int end, Random rnd = null) where T : IComparable<T>
+    private static int Partition<T>(this IList<T> list, int start, int end, Random? rnd = null) where T : IComparable<T>
     {
         if (rnd != null)
             list.Swap(end, rnd.Next(start, end + 1));
@@ -34,11 +34,11 @@ public static class MedianHelper
     /// Note: specified list would be mutated in the process.
     /// Reference: Introduction to Algorithms 3rd Edition, Corman et al, pp 216
     /// </summary>
-    public static T NthOrderStatistic<T>(this IList<T> list, int n, Random rnd = null) where T : IComparable<T>
+    public static T NthOrderStatistic<T>(this IList<T> list, int n, Random? rnd = null) where T : IComparable<T>
     {
         return NthOrderStatistic(list, n, 0, list.Count - 1, rnd);
     }
-    private static T NthOrderStatistic<T>(this IList<T> list, int n, int start, int end, Random rnd) where T : IComparable<T>
+    private static T NthOrderStatistic<T>(this IList<T> list, int n, int start, int end, Random? rnd) where T : IComparable<T>
     {
         while (true)
         {

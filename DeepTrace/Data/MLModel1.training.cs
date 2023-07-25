@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.ML.Data;
+using Microsoft.ML.Trainers.FastTree;
 using Microsoft.ML.Trainers;
 using Microsoft.ML;
 
@@ -54,8 +55,7 @@ namespace DeepTrace
                                     .Append(mlContext.Transforms.Text.FeaturizeText(inputColumnName:@"Q5mean",outputColumnName:@"Q5mean"))      
                                     .Append(mlContext.Transforms.Concatenate(@"Features", new []{@"Q1max",@"Q1avg",@"Q1mean",@"Q2min",@"Q2max",@"Q2avg",@"Q2mean",@"Q3min",@"Q3max",@"Q3avg",@"Q3mean",@"Q4max",@"Q4avg",@"Q4mean",@"Q5min",@"Q5max",@"Q5avg",@"Q5mean"}))      
                                     .Append(mlContext.Transforms.Conversion.MapValueToKey(outputColumnName:@"Name",inputColumnName:@"Name"))      
-                                    .Append(mlContext.Transforms.NormalizeMinMax(@"Features", @"Features"))      
-                                    .Append(mlContext.MulticlassClassification.Trainers.OneVersusAll(binaryEstimator: mlContext.BinaryClassification.Trainers.LbfgsLogisticRegression(new LbfgsLogisticRegressionBinaryTrainer.Options(){L1Regularization=1F,L2Regularization=1F,LabelColumnName=@"Name",FeatureColumnName=@"Features"}), labelColumnName:@"Name"))      
+                                    .Append(mlContext.MulticlassClassification.Trainers.OneVersusAll(binaryEstimator:mlContext.BinaryClassification.Trainers.FastTree(new FastTreeBinaryTrainer.Options(){NumberOfLeaves=33,MinimumExampleCountPerLeaf=14,NumberOfTrees=4,MaximumBinCountPerFeature=1022,FeatureFraction=0.99999999,LearningRate=0.757926844134433,LabelColumnName=@"Name",FeatureColumnName=@"Features"}),labelColumnName: @"Name"))      
                                     .Append(mlContext.Transforms.Conversion.MapKeyToValue(outputColumnName:@"PredictedLabel",inputColumnName:@"PredictedLabel"));
 
             return pipeline;

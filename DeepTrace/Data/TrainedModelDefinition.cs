@@ -7,7 +7,7 @@ namespace DeepTrace.Data
     {
         [BsonId]
         public ObjectId? Id { get; set; }
-        public string Name { get; set; }
-        public byte[] Value { get; set; } //base64
+        public string Name { get; set; } = string.Empty;
+        public byte[] Value { get; set; } = Array.Empty<byte>(); //base64
     }
 }

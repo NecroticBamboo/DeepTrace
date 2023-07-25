@@ -5,7 +5,7 @@ namespace DeepTrace.ML;
 
 public interface IMLProcessor
 {
-    Task Train(ModelDefinition modelDef);
+    Task Train(ModelDefinition modelDef, Action<string> log);
     byte[] Export();
     void Import(byte[] data);
     string Predict(DataSourceDefinition dataSource);

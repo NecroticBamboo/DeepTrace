@@ -16,7 +16,7 @@
 
         public string Name { get; set; } = string.Empty;
 
-        public List<TimeSeriesDataSet> Data { get; set; }
+        public List<TimeSeriesDataSet> Data { get; set; } = new();
 
     }
 }

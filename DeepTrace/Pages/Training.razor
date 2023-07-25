@@ -1,4 +1,5 @@
 ﻿@page "/training"
+@using CsvHelper;
 @using DeepTrace.Data;
 @using DeepTrace.ML;
 @using DeepTrace.Services;
@@ -7,6 +8,7 @@
 @using Microsoft.ML;
 @using PrometheusAPI;
 @using System.Text;
+@using System.Globalization;
 
 @inject PrometheusClient Prometheus
 @inject IDialogService DialogService
@@ -16,6 +18,7 @@
 @inject IEstimatorBuilder EstimatorBuilder
 @inject NavigationManager NavManager
 @inject IJSRuntime Js
+@inject ILogger<MLProcessor> MLProcessorLogger
 
 
 <PageTitle>Training</PageTitle>
@@ -202,14 +205,14 @@
         }
     }
 
-    private ModelForm? _modelForm;
-    private TimeSeriesData? DisplayData { get; set; }
+    private ModelForm?              _modelForm;
     private List<DataSourceStorage> _dataSources = new();
-    private List<ModelDefinition> _modelDefinitions = new() {new()};
+    private List<ModelDefinition>   _modelDefinitions = new() {new()};
+    private DateTime?               _minDate;
+    private DateTime?               _maxDate;
 
-    private DateTime? _minDate;
-    private DateTime? _maxDate;
-    private bool IsAddDisabled => DisplayData==null;
+    private TimeSeriesData? DisplayData { get; set; }
+    private bool IsAddDisabled => DisplayData == null;
 
     private DateTime? MinDate
     {
@@ -245,9 +248,9 @@
 
         base.OnInitialized();
 
-        var sources = await StorageService.Load();
-        var models = await ModelService.Load();
-        var trainedModels = await TrainedModelService.Load();
+        var sources               = await StorageService.Load();
+        var models                = await ModelService.Load();
+        var trainedModels         = await TrainedModelService.Load();
         IList<IBrowserFile> files = new List<IBrowserFile>();
 
         if (sources.Count > 0)
@@ -256,8 +259,8 @@
             _modelDefinitions = models;
 
         _modelForm.CurrentModel = _modelDefinitions[0];
-        var source = _dataSources.FirstOrDefault(x => x.Name == _modelDefinitions[0].DataSource.Name);
-        _modelForm.DataSource = source ?? _dataSources[0];
+        var source              = _dataSources.FirstOrDefault(x => x.Name == _modelDefinitions[0].DataSource.Name);
+        _modelForm.DataSource   = source ?? _dataSources[0];
 
     }
 
@@ -293,7 +296,7 @@
         }
         catch (Exception e)
         {
-            ShowError(e.Message);
+            await ShowError(e.Message);
             return;
         }
 
@@ -303,20 +306,20 @@
         {
             if (res.Status != StatusType.Success)
             {
-                ShowError(res.Error ?? "Error");
+                await ShowError(res.Error ?? "Error");
                 return;
             }
 
             if (res.ResultType != ResultTypeType.Matrix)
             {
-                ShowError($"Got {res.ResultType}, but Matrix expected for {def.Query}");
+                await ShowError($"Got {res.ResultType}, but Matrix expected for {def.Query}");
                 return;
             }
 
             var m = res.AsMatrix().Result;
             if (m == null || m.Length != 1)
             {
-                ShowError($"No data returned for {def.Query}");
+                await ShowError($"No data returned for {def.Query}");
                 return;
             }
 
@@ -335,12 +338,15 @@
 
     private void HandleAddModel()
     {
+        if (_modelForm == null)
+            return;
+
         _modelDefinitions.Add(new());
         _modelForm.CurrentModel = _modelDefinitions[^1];
         StateHasChanged();
     }
 
-    private void HandleDeleteModel()
+    private async Task HandleDeleteModel()
     {
         if (_modelDefinitions.Count < 2)
         {
@@ -350,7 +356,7 @@
         var pos = _modelDefinitions.IndexOf(_modelForm!.CurrentModel);
         if (pos < 0)
         {
-            ShowError("Not found");
+            await ShowError("Not found");
             return;
         }
 
@@ -360,10 +366,10 @@
 
         if (toDelete.Id != null)
         {
-            ModelService.Delete(toDelete);
+            await ModelService.Delete(toDelete);
         }
 
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task HandleAddTableContent()
@@ -399,11 +405,14 @@
 
     private void ItemHasBeenCommitted(object element)
     {
-        Task.Run(async ()=>ModelService.Store(_modelForm!.CurrentModel));
+        Task.Run(() => ModelService.Store(_modelForm!.CurrentModel));
     }
 
     private async Task HandleRefresh()
     {
+        if (DisplayData == null)
+            return;
+
         var previousIntervals = _modelForm!.CurrentModel.IntervalDefinitionList;
 
         foreach(var currentInterval in previousIntervals)
@@ -415,20 +424,72 @@
         // await InvokeAsync(StateHasChanged);
     }
 
-    //Doesn't work
+    private class ImportedCsv
+    {
+        public DateTime Start { get; set; }
+        public DateTime End   { get; set; }
+        public string Label   { get; set; } = "";
+    }
+
     private async Task HandleImport(IBrowserFile file)
     {
-        var result = new StringBuilder();
-        var reader = new StreamReader(file.OpenReadStream(file.Size));
+        try
+        {
+            await HandleImportInternal(file);
+        }
+        catch (Exception e)
+        {
+            await ShowError($"Can't import: {e.Message}");
+        }
+    }
 
-        while (reader.Peek() >= 0)
-            result.AppendLine(await reader.ReadLineAsync());
-        
-        result.ToString();
+    private async Task HandleImportInternal(IBrowserFile file)
+    {
+        if ( _modelForm == null )
+            return;
+
+        using var mem = new MemoryStream();
+        // https://stackoverflow.com/questions/67066860/blazorinputfile-synchronous-reads-are-not-supported
+        await file.OpenReadStream(file.Size).CopyToAsync(mem);
+        mem.Position = 0;
+
+        //        var text = Encoding.UTF8.GetString(mem.ToArray());
+
+        using (var reader = new StreamReader(mem))
+        using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+        {
+            var records = csv.GetRecords<ImportedCsv>();
+
+            var yes = await YesNo("If you want to replace all intervals click Yes. Click No to append.");
+            if (yes == null)
+                return;
+
+            if (yes == true)
+                _modelForm.CurrentModel.IntervalDefinitionList.Clear();
+
+            var normalWorkStart = DateTime.MinValue;
+            foreach( var rec in records)
+            {
+                if(normalWorkStart != DateTime.MinValue)
+                {
+                    var normalWorkEnd = rec.Start - TimeSpan.FromSeconds(1);
+                    if(normalWorkStart<normalWorkEnd)
+                        _modelForm.CurrentModel.IntervalDefinitionList.Add(new(normalWorkStart, normalWorkEnd, "Normal work"));
+                }
+                normalWorkStart = rec.End+TimeSpan.FromSeconds(1);
+                _modelForm.CurrentModel.IntervalDefinitionList.Add(new(rec.Start, rec.End, rec.Label));
+            }
+        }
+
+        await HandleRefresh();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task HandleExport()
     {
+        if (_modelForm == null)
+            return;
+
         await Js.InvokeVoidAsync("open", $"{NavManager.BaseUri}api/download/mldata/{Uri.EscapeDataString(_modelForm.CurrentModel.Name)}", "_blank");
 
     }
@@ -440,7 +501,7 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void ShowError(string text)
+    private async Task ShowError(string text)
     {
         var options = new DialogOptions
             {
@@ -449,19 +510,50 @@
         var parameters = new DialogParameters();
         parameters.Add("Text", text);
 
-        DialogService.Show<Controls.Dialog>("Error", parameters, options);
+        var d = DialogService.Show<Controls.Dialog>("Error", parameters, options);
+        await d.Result;
+    }
+
+    private async Task<bool?> YesNo(string text)
+    {
+        var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add(nameof(Controls.Dialog.Text), text);
+        parameters.Add(nameof(Controls.Dialog.IsYesNoCancel), true);
+
+        var d = DialogService.Show<Controls.Dialog>("Query", parameters, options);
+        var res = await d.Result;
+        return res?.Data as bool?;
     }
 
     private async Task HandleTrain()
     {
-        var mlProcessor = new MLProcessor();
-        await mlProcessor.Train(_modelForm!.CurrentModel);
+        var mlProcessor = new MLProcessor(MLProcessorLogger);
+        MLProcessorLogger.LogInformation("Training started");
+        
+        var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add(nameof(Controls.TrainingDialog.Text), _modelForm!.CurrentModel.Name);
+        parameters.Add(nameof(Controls.TrainingDialog.Processor), mlProcessor);
+        parameters.Add(nameof(Controls.TrainingDialog.Model), _modelForm.CurrentModel);
+
+        var d = DialogService.Show<Controls.TrainingDialog>("Training", parameters, options);
+        var res = await d.Result;
+
+        MLProcessorLogger.LogInformation("Training finished");
         var bytes = mlProcessor.Export();
         
         //save to Mongo
         var trainedModel = new TrainedModelDefinition
         {
-            Name = "TrainedModel",
+            Id = _modelForm!.CurrentModel.Id,
+            Name = _modelForm!.CurrentModel.Name,
             Value = bytes
         };
         await TrainedModelService.Store(trainedModel);

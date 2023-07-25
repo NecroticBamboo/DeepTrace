@@ -372,6 +372,9 @@
 
     private void HandleTrain()
     {
+        if ( DisplayData == null )
+            return;
+
         var mlContext = new MLContext();
 
         var dataView = mlContext.Data.LoadFromEnumerable<MyTimeSeries>(DisplayData.Series[0].Data.Select(x => new MyTimeSeries(Time: x.TimeStamp, Value: x.Value)));
@@ -476,7 +479,7 @@
 
     // -------- Spike detection tutorial ---------
 
-    private static void DetectSpike(MLContext mLContext, IDataView dataView, TimeSeries[]? data)
+    private static void DetectSpike(MLContext mLContext, IDataView dataView, TimeSeries[] data)
     {
         string outputColumnName = nameof(IidSpikePrediction.Prediction);
         string inputColumnName = nameof(TimeSeriesDataTutorial.Value);
@@ -521,7 +524,7 @@
     class TimeSeriesDataTutorial
     {
         public float Value;
-    
+
         public TimeSeriesDataTutorial(float value)
         {
             Value = value;
@@ -531,7 +534,7 @@
     class IidSpikePrediction
     {
         [VectorType(3)]
-        public double[] Prediction { get; set; }
+        public double[] Prediction { get; set; } = Array.Empty<double>();
     }
 
 }

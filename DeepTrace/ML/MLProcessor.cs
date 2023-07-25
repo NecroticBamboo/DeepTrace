@@ -12,13 +12,21 @@ namespace DeepTrace.ML
         private EstimatorBuilder _estimatorBuilder = new EstimatorBuilder();
         private DataViewSchema? _schema;
         private ITransformer? _transformer;
+        private static string _signature = "DeepTrace-Model-v1-" + typeof(MLProcessor).Name;
+        private readonly ILogger<MLProcessor> _logger;
+
+        public MLProcessor(ILogger<MLProcessor> logger)
+        {
+            _logger = logger;
+        }
 
         private string Name { get; set; } = "TestModel";
 
-        public async Task Train(ModelDefinition modelDef)
+        public async Task Train(ModelDefinition modelDef, Action<string> log)
         {
             var pipeline = _estimatorBuilder.BuildPipeline(_mlContext, modelDef);
             var (data, filename) = await MLHelpers.Convert(_mlContext, modelDef);
+            _mlContext.Log += (_,e) => LogEvents(log, e);
             try
             {
                 _schema = data.Schema;
@@ -31,7 +39,15 @@ namespace DeepTrace.ML
            
         }
 
-        private static string _signature = "DeepTrace-Model-v1-"+typeof(MLProcessor).Name;
+        private void LogEvents(Action<string> log, LoggingEventArgs e)
+        {
+            if(e.Kind.ToString() != "Trace")
+            {
+                _logger.LogDebug(e.Message);
+                log(e.Message);
+            }
+            
+        }
 
         public byte[] Export()
         {

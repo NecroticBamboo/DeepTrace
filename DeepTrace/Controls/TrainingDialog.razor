@@ -1,0 +1,51 @@
+﻿@using DeepTrace.Data;
+@using DeepTrace.ML;
+
+<style>
+    .dialog-content{
+        min-width: 1000px;
+        width: fit-content;
+    }
+</style>
+
+<MudDialog Class="dialog-content">
+    <DialogContent>
+        
+        <h4>@Text</h4>
+        <MudTextField T="string" ReadOnly="true" Text="@_progressText"></MudTextField>
+        
+        
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="MudBlazor.Color.Primary" OnClick="Submit" Disabled="@_isTraining">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    [Parameter] public MLProcessor? Processor { get; set; }
+    [Parameter] public ModelDefinition? Model { get; set; }
+    [Parameter] public string Text { get; set; } = "";
+
+    private string _progressText = "";
+    private bool _isTraining = true;
+
+    void Submit() => MudDialog?.Close(DialogResult.Ok(true));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || Processor==null || Model==null)
+        {
+            return;
+        }
+
+        await Processor.Train(Model, UpdateProgress);
+        _isTraining = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void UpdateProgress(string message)
+    {
+        _progressText = message;
+        await InvokeAsync(StateHasChanged);
+    }
+}

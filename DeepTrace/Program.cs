@@ -3,8 +3,18 @@ using PrometheusAPI;
 using MongoDB.Driver;
 using DeepTrace.Services;
 using DeepTrace.ML;
+using ApexCharts;
+using log4net;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddLogging(logging =>
+{
+    logging.ClearProviders();
+    GlobalContext.Properties["LOGS_ROOT"] = Environment.GetEnvironmentVariable("LOGS_ROOT") ?? "";
+    System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+    logging.AddLog4Net("log4net.config");
+});
 
 // Add services to the container.
 builder.Services.AddRazorPages();
