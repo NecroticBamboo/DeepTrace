@@ -2,9 +2,11 @@
 
 namespace DeepTrace.Data;
 
-public class MyPrediction
+public class Prediction
 {
-    //vector to hold alert,score,p-value values
-    [VectorType(3)]
-    public double[]? Prediction { get; set; }
+    [ColumnName(@"PredictedLabel")]
+    public string PredictedLabel { get; set; }
+
+    [ColumnName(@"Score")]
+    public float[] Score { get; set; }
 }

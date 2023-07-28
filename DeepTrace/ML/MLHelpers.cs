@@ -32,9 +32,14 @@ public static class MLHelpers
 
         await File.WriteAllTextAsync(fileName, csv);
 
+        return LoadFromCsv(mlContext, model, fileName);
+    }
+
+    public static (IDataView View, string FileName) LoadFromCsv(MLContext mlContext, ModelDefinition model, string fileName)
+    {
         var columnNames = model.GetColumnNames();
-        var columns     = columnNames
-            .Select((x,i) => new TextLoader.Column(x, DataKind.String, i))
+        var columns = columnNames
+            .Select((x, i) => new TextLoader.Column(x, DataKind.String, i))
             .ToArray()
             ;
 

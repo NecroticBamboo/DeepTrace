@@ -10,6 +10,7 @@ namespace DeepTrace.Services
     {
         Task Delete(ModelDefinition source, bool ignoreNotStored = false);
         Task<List<ModelDefinition>> Load();
+        Task<ModelDefinition?> Load(BsonObjectId id);
         Task Store(ModelDefinition source);
     }
 }

@@ -1,4 +1,9 @@
 ﻿@page "/"
+@using DeepTrace.Data;
+@using DeepTrace.Services;
+@using DeepTrace.Controls;
+
+@inject ITrainedModelStorageService TrainedModelService
 
 <PageTitle>Index</PageTitle>
 
@@ -6,4 +11,26 @@
 
 Welcome to your new app.
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+@if (_trainedModels != null)
+{
+    @foreach(TrainedModelDefinition model in _trainedModels)
+    {
+        <ModelCard Model="@model"/>
+    }
+} else
+{
+    <MudText>Nothing to display</MudText>
+}
+
+
+@code{
+    private List<TrainedModelDefinition> _trainedModels = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        base.OnInitialized();
+        _trainedModels = await TrainedModelService.Load();
+
+    }
+
+}

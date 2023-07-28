@@ -3,6 +3,7 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using PrometheusAPI;
 using System.Data;
+using static DeepTrace.MLModel1;
 
 namespace DeepTrace.ML
 {
@@ -22,15 +23,19 @@ namespace DeepTrace.ML
 
         private string Name { get; set; } = "TestModel";
 
-        public async Task Train(ModelDefinition modelDef, Action<string> log)
+        public async Task<MLEvaluationMetrics> Train(ModelDefinition modelDef, Action<string> log)
         {
             var pipeline = _estimatorBuilder.BuildPipeline(_mlContext, modelDef);
             var (data, filename) = await MLHelpers.Convert(_mlContext, modelDef);
+
+            DataOperationsCatalog.TrainTestData dataSplit = _mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+
             _mlContext.Log += (_,e) => LogEvents(log, e);
             try
             {
                 _schema = data.Schema;
-                _transformer = pipeline.Fit(data);
+                _transformer = pipeline.Fit(dataSplit.TrainSet);
+                return Evaluate(dataSplit.TestSet);
             } 
             finally
             {
@@ -47,6 +52,20 @@ namespace DeepTrace.ML
                 log(e.Message);
             }
             
+        }
+
+        private MLEvaluationMetrics Evaluate(IDataView testData)
+        {
+            var predictions = _transformer!.Transform(testData);
+            var metrics = _mlContext.MulticlassClassification.Evaluate(predictions, "Name");
+            var evaluationMetrics = new MLEvaluationMetrics()
+            {
+                MicroAccuracy = metrics.MicroAccuracy,
+                MacroAccuracy = metrics.MacroAccuracy,
+                LogLoss = metrics.LogLoss,
+                LogLossReduction = metrics.LogLossReduction,
+            };
+            return evaluationMetrics;
         }
 
         public byte[] Export()
@@ -89,12 +108,30 @@ namespace DeepTrace.ML
             mem.Read(bytes, 0, bytes.Length);
 
             (_mlContext, _schema, _transformer) = MLHelpers.ImportSingleModel(bytes);
-
         }
 
-        public string Predict(DataSourceDefinition dataSourceDefinition)
+        public async Task<Prediction> Predict(TrainedModelDefinition trainedModel, ModelDefinition model, List<TimeSeriesDataSet> data)
         {
-            throw new NotImplementedException();
+            Import(trainedModel.Value);
+            var headers = string.Join(",", model.GetColumnNames().Select(x => $"\"{x}\""));
+            var row = ModelDefinition.ConvertToCsv(data);
+
+            var csv = headers+"\n"+row;
+            var fileName = Path.GetTempFileName();
+            try
+            {
+                await File.WriteAllTextAsync(fileName, csv);
+
+                var (dataView, _) = MLHelpers.LoadFromCsv(_mlContext, model, fileName);
+
+                var predictionEngine = _mlContext.Model.CreatePredictionEngine<IDataView, Prediction>(_transformer);
+                var prediction = predictionEngine.Predict(dataView);
+                return prediction;
+            } 
+            finally
+            {
+                File.Delete(fileName);
+            }
         }
     }
 }

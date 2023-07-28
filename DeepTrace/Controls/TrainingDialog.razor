@@ -12,8 +12,16 @@
     <DialogContent>
         
         <h4>@Text</h4>
-        <MudTextField T="string" ReadOnly="true" Text="@_progressText"></MudTextField>
         
+        <MudTextField T="string" ReadOnly="true" Text="@_progressText"></MudTextField>
+        @if (_isTraining == false)
+        {
+            <MudText>MicroAccuracy: @_evaluationMetrics!.MicroAccuracy.ToString("N2")</MudText>
+            <MudText>MacroAccuracy: @_evaluationMetrics!.MacroAccuracy.ToString("N2")</MudText>
+            <MudText>LogLoss: @_evaluationMetrics!.LogLoss.ToString("N2")</MudText>
+            <MudText>LogLossReduction: @_evaluationMetrics!.LogLossReduction.ToString("N2")</MudText>
+        }
+
         
     </DialogContent>
     <DialogActions>
@@ -28,6 +36,7 @@
 
     private string _progressText = "";
     private bool _isTraining = true;
+    private MLEvaluationMetrics? _evaluationMetrics;
 
     void Submit() => MudDialog?.Close(DialogResult.Ok(true));
 
@@ -38,7 +47,7 @@
             return;
         }
 
-        await Processor.Train(Model, UpdateProgress);
+        _evaluationMetrics = await Processor.Train(Model, UpdateProgress);
         _isTraining = false;
         await InvokeAsync(StateHasChanged);
     }

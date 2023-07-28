@@ -25,6 +25,15 @@ namespace DeepTrace.Services
             var res = await (await collection.FindAsync("{}")).ToListAsync();
             return res;
         }
+
+        public async Task<ModelDefinition?> Load(BsonObjectId id)
+        {
+            var db = _client.GetDatabase(MongoDBDatabaseName);
+            var collection = db.GetCollection<ModelDefinition>(MongoDBCollection);
+            var res = (await (await collection.FindAsync($"{{_id:ObjectId(\"{id}\")}}")).ToListAsync()).FirstOrDefault();
+            return res;
+        }
+
         public async Task Store(ModelDefinition source)
         {
             var db = _client.GetDatabase(MongoDBDatabaseName);

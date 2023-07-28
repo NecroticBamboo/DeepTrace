@@ -1,0 +1,169 @@
+﻿@using DeepTrace.Data;
+@using DeepTrace.ML;
+@using DeepTrace.Services;
+@using PrometheusAPI;
+
+@inject PrometheusClient Prometheus
+@inject IDialogService DialogService
+@inject IModelStorageService ModelService
+@inject ITrainedModelStorageService TrainedModelService
+@inject ILogger<MLProcessor> MLProcessorLogger
+@inject ILogger<ModelCard> Logger
+
+<MudCard Class="mb-3">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h6">@Model?.Name</MudText>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudSwitch @bind-Checked="IsEnabled"> @Model?.IsEnabled</MudSwitch>
+        </CardHeaderActions>
+    </MudCardHeader>
+    <MudCardContent>    
+        <MudText>Current state: @_prediction.PredictedLabel</MudText>
+    </MudCardContent>
+</MudCard>
+
+@code{
+    [Parameter]
+    public TrainedModelDefinition? Model { get; set; }
+
+    private ModelDefinition _modelDefinition = new();
+    private Prediction _prediction = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || Model?.Id == null)
+        {
+            return;
+        }
+        _modelDefinition = (await ModelService.Load(Model.Id)) ?? _modelDefinition;
+        
+        #pragma warning disable CS4014
+        Task.Run(PredictionLoop);
+        #pragma warning restore CS4014
+    }
+
+    private bool IsEnabled
+    {
+        get => Model?.IsEnabled ?? false;
+        set
+        {
+            if (Model==null || Model.IsEnabled == value)
+            {
+                return;
+            }
+            Model.IsEnabled = value;
+            InvokeAsync(SaveIsEnabled);
+        }
+    }
+
+    private async Task SaveIsEnabled()
+    {
+        if(Model == null)
+        {
+            return;
+        }
+
+        var trainedModel = new TrainedModelDefinition
+            {
+                Id        = Model.Id,
+                IsEnabled = Model.IsEnabled,
+                Name      = Model.Name,
+                Value     = Model.Value
+            };
+        await TrainedModelService.Store(trainedModel);
+    }
+
+    private async Task PredictionLoop()
+    {
+        var startDate = DateTime.UtcNow;
+        while (true)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                var endDate = DateTime.UtcNow;
+                await PredictAnomaly(startDate, endDate);
+                startDate = endDate;
+            }
+            catch(Exception)
+            {
+                //ignore
+            }
+        }
+    }
+
+    private async Task PredictAnomaly(DateTime startDate, DateTime endDate)
+    {
+
+        // use automatic step value to always request 500 elements
+        var seconds = (endDate - startDate).TotalSeconds / 500.0;
+        if (seconds < 1.0)
+            seconds = 1.0;
+        var step = TimeSpan.FromSeconds(seconds);
+
+        var tasks = _modelDefinition!.DataSource.Queries
+            .Select(x => Prometheus.RangeQuery(x.Query, startDate, endDate, step, TimeSpan.FromSeconds(2)))
+            .ToArray();
+
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception e)
+        {
+            await ShowError(e.Message);
+            return;
+        }
+
+        var data = new List<TimeSeriesDataSet>();
+
+        foreach (var (res, def) in tasks.Select((x, i) => (x.Result, _modelDefinition.DataSource.Queries[i])))
+        {
+            if (res.Status != StatusType.Success)
+            {
+                Logger.LogError(res.Error ?? "Error");
+                return;
+            }
+
+            if (res.ResultType != ResultTypeType.Matrix)
+            {
+                Logger.LogError($"Got {res.ResultType}, but Matrix expected for {def.Query}");
+                return;
+            }
+
+            var m = res.AsMatrix().Result;
+            if (m == null || m.Length != 1)
+            {
+                Logger.LogError($"No data returned for {def.Query}");
+                return;
+            }
+
+            data.Add(
+                new()
+                    {
+                        Name = def.Query,
+                        Color = def.Color,
+                        Data = m[0].Values!.ToList()
+                    }
+            );
+        }
+
+        var mlProcessor = new MLProcessor(MLProcessorLogger);
+        _prediction = await mlProcessor.Predict(Model, _modelDefinition, data);
+    }
+
+    private async Task ShowError(string text)
+    {
+        var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add("Text", text);
+
+        var d = DialogService.Show<Controls.Dialog>("Error", parameters, options);
+        await d.Result;
+    }
+}

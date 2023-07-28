@@ -44,23 +44,31 @@ public class ModelDefinition
 
         foreach (var currentInterval in IntervalDefinitionList)
         {
-            var data = "";
-            for (var i = 0; i < currentInterval.Data.Count; i++)
-            {
-
-                var queryData = currentInterval.Data[i];
-                var min = queryData.Data.Min(x => x.Value);
-                var max = queryData.Data.Max(x => x.Value);
-                var avg = queryData.Data.Average(x => x.Value);
-                var mean = queryData.Data.Sum(x => x.Value) / queryData.Data.Count;
-
-                data += min + "," + max + "," + avg + "," + mean + ",";
-
-            }
-            data += currentInterval.Name;
+            var source = currentInterval.Data;
+            string data = ConvertToCsv(source);
+            data += "," + currentInterval.Name;
             writer.AppendLine(data);
         }
 
         return writer.ToString();
+    }
+
+    public static string ConvertToCsv(List<TimeSeriesDataSet> source)
+    {
+        var data = "";
+        for (var i = 0; i < source.Count; i++)
+        {
+
+            var queryData = source[i];
+            var min = queryData.Data.Min(x => x.Value);
+            var max = queryData.Data.Max(x => x.Value);
+            var avg = queryData.Data.Average(x => x.Value);
+            var mean = queryData.Data.Sum(x => x.Value) / queryData.Data.Count;
+
+            data += min + "," + max + "," + avg + "," + mean + ",";
+
+        }
+
+        return data+"\"ignoreMe\"";
     }
 }
