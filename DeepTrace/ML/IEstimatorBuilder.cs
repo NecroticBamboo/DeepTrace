@@ -1,10 +1,9 @@
 ﻿using DeepTrace.Data;
 using Microsoft.ML;
 
-namespace DeepTrace.ML
+namespace DeepTrace.ML;
+
+public interface IEstimatorBuilder
 {
-    public interface IEstimatorBuilder
-    {
-        IEstimator<ITransformer> BuildPipeline(MLContext mlContext, ModelDefinition model);
-    }
+    IEstimator<ITransformer> BuildPipeline(MLContext mlContext, ModelDefinition model);
 }

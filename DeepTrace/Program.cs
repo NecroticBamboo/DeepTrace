@@ -29,6 +29,7 @@ builder.Services
     .AddSingleton<IModelStorageService, ModelStorageService>()
     .AddSingleton<ITrainedModelStorageService, TrainedModelStorageService>()
     .AddSingleton<IEstimatorBuilder, EstimatorBuilder>()
+    .AddSingleton<IMLProcessorFactory, MLProcessorFactory>()
     ;
 
 var app = builder.Build();

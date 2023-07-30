@@ -18,7 +18,7 @@
 @inject IEstimatorBuilder EstimatorBuilder
 @inject NavigationManager NavManager
 @inject IJSRuntime Js
-@inject ILogger<MLProcessor> MLProcessorLogger
+@inject IMLProcessorFactory MlProcessorFactory
 
 
 <PageTitle>Training</PageTitle>
@@ -531,14 +531,14 @@
 
     private async Task HandleTrain()
     {
-        var mlProcessor = new MLProcessor(MLProcessorLogger);
-        MLProcessorLogger.LogInformation("Training started");
-        
         var options = new DialogOptions
             {
                 CloseOnEscapeKey = true
             };
         var parameters = new DialogParameters();
+        
+        var mlProcessor = MlProcessorFactory.Create();
+
         parameters.Add(nameof(Controls.TrainingDialog.Text), _modelForm!.CurrentModel.Name);
         parameters.Add(nameof(Controls.TrainingDialog.Processor), mlProcessor);
         parameters.Add(nameof(Controls.TrainingDialog.Model), _modelForm.CurrentModel);
@@ -546,7 +546,6 @@
         var d = DialogService.Show<Controls.TrainingDialog>("Training", parameters, options);
         var res = await d.Result;
 
-        MLProcessorLogger.LogInformation("Training finished");
         var bytes = mlProcessor.Export();
         
         //save to Mongo

@@ -14,13 +14,13 @@
         <h4>@Text</h4>
         
         <MudTextField T="string" ReadOnly="true" Text="@_progressText"></MudTextField>
-        @if (_isTraining == false)
-        {
-            <MudText>MicroAccuracy: @_evaluationMetrics!.MicroAccuracy.ToString("N2")</MudText>
-            <MudText>MacroAccuracy: @_evaluationMetrics!.MacroAccuracy.ToString("N2")</MudText>
-            <MudText>LogLoss: @_evaluationMetrics!.LogLoss.ToString("N2")</MudText>
-            <MudText>LogLossReduction: @_evaluationMetrics!.LogLossReduction.ToString("N2")</MudText>
-        }
+        @if (_isTraining == false && _evaluationMetrics != null)
+    {
+        <MudText>MicroAccuracy:    @_evaluationMetrics.MicroAccuracy.ToString("N6")</MudText>
+        <MudText>MacroAccuracy:    @_evaluationMetrics.MacroAccuracy.ToString("N6")</MudText>
+        <MudText>LogLoss:          @_evaluationMetrics.LogLoss.ToString("N6")</MudText>
+        <MudText>LogLossReduction: @_evaluationMetrics.LogLossReduction.ToString("N6")</MudText>
+    }
 
         
     </DialogContent>
@@ -29,32 +29,43 @@
     </DialogActions>
 </MudDialog>
 @code {
-    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
-    [Parameter] public MLProcessor? Processor { get; set; }
-    [Parameter] public ModelDefinition? Model { get; set; }
-    [Parameter] public string Text { get; set; } = "";
+[CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+[Parameter] public MLProcessor? Processor { get; set; }
+[Parameter] public ModelDefinition? Model { get; set; }
+[Parameter] public string Text { get; set; } = "";
 
-    private string _progressText = "";
-    private bool _isTraining = true;
-    private MLEvaluationMetrics? _evaluationMetrics;
+private string _progressText = "";
+private bool _isTraining = true;
+private MLEvaluationMetrics? _evaluationMetrics;
 
-    void Submit() => MudDialog?.Close(DialogResult.Ok(true));
+void Submit() => MudDialog?.Close(DialogResult.Ok(true));
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (!firstRender || Processor==null || Model==null)
     {
-        if (!firstRender || Processor==null || Model==null)
-        {
-            return;
-        }
+        return;
+    }
+
+    try
+    {
 
         _evaluationMetrics = await Processor.Train(Model, UpdateProgress);
+    }
+    catch (Exception e)
+    {
+        _progressText = "ERROR: " + e.Message;
+    }
+    finally
+    {
         _isTraining = false;
         await InvokeAsync(StateHasChanged);
     }
+}
 
-    private async void UpdateProgress(string message)
-    {
-        _progressText = message;
-        await InvokeAsync(StateHasChanged);
-    }
+private async void UpdateProgress(string message)
+{
+    _progressText = message;
+    await InvokeAsync(StateHasChanged);
+}
 }

@@ -7,6 +7,21 @@ namespace DeepTrace.ML;
 
 public record ModelRecord(MLContext Context, DataViewSchema Schema, ITransformer Transformer);
 
+public class MLInputData
+{
+    public string Label { get; set; } = "Normal operation";
+    public float[] Features { get; set; } = Array.Empty<float>();
+
+}
+
+public class MLOutputData
+{
+    public string PredictedLabel { get; set; } = string.Empty;
+
+    public float[] Score { get; set; } = Array.Empty<float>();
+}
+
+
 public static class MLHelpers
 {
     public static byte[] ExportSingleModel( ModelRecord model)
@@ -32,10 +47,22 @@ public static class MLHelpers
 
         await File.WriteAllTextAsync(fileName, csv);
 
-        return LoadFromCsv(mlContext, model, fileName);
+        return (LoadFromCsv(mlContext, model, fileName), fileName);
     }
 
-    public static (IDataView View, string FileName) LoadFromCsv(MLContext mlContext, ModelDefinition model, string fileName)
+    public static Task<IDataView> ToInput(MLContext mlContext, ModelDefinition model)
+    {
+        var input = model.ToInput().ToList();
+
+        // VectorType attribute with dynamic dimension
+        // https://github.com/dotnet/machinelearning/issues/164
+        var schemaDef = SchemaDefinition.Create(typeof(MLInputData));
+        schemaDef["Features"].ColumnType = new VectorDataViewType(NumberDataViewType.Single, input.First().Features.Length );
+
+        return Task.FromResult(mlContext.Data.LoadFromEnumerable(input, schemaDef));
+    }
+
+    public static IDataView LoadFromCsv(MLContext mlContext, ModelDefinition model, string fileName)
     {
         var columnNames = model.GetColumnNames();
         var columns = columnNames
@@ -43,8 +70,14 @@ public static class MLHelpers
             .ToArray()
             ;
 
-        var view = mlContext.Data.LoadFromTextFile(fileName, columns, separatorChar: ',', hasHeader: true, allowQuoting: true, trimWhitespace: true);
+        var view = mlContext.Data.LoadFromTextFile(
+            fileName,
+            columns,
+            separatorChar: ',',
+            hasHeader: true,
+            allowQuoting: true,
+            trimWhitespace: true);
 
-        return (view, fileName);
+        return view;
     }
 }

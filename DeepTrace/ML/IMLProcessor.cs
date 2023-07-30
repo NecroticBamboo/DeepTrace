@@ -10,3 +10,8 @@ public interface IMLProcessor
     void Import(byte[] data);
     Task<Prediction> Predict(TrainedModelDefinition trainedModel, ModelDefinition model, List<TimeSeriesDataSet> data);
 }
+
+public interface IMLProcessorFactory
+{
+    IMLProcessor Create();
+}

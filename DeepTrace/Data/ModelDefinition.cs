@@ -2,6 +2,7 @@
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson;
 using System.Text;
+using DeepTrace.ML;
 
 namespace DeepTrace.Data;
 
@@ -15,28 +16,21 @@ public class ModelDefinition
     }
 
     [BsonId]
-    public ObjectId? Id { get; set; }
-    public string Name { get; set; }
-    public DataSourceStorage DataSource { get; set; } = new();
-    public string AIparameters { get; set; } = string.Empty;
+    public ObjectId? Id                                    { get; set; }
+    public string Name                                     { get; set; }
+    public DataSourceStorage DataSource                    { get; set; } = new();
+    public string AIparameters                             { get; set; } = string.Empty;
     public List<IntervalDefinition> IntervalDefinitionList { get; set; } = new();
 
-    public List<string> GetColumnNames()
-    {
-        var measureNames = new[] { "min", "max", "avg", "mean" };
-        var columnNames = new List<string>();
-        foreach (var item in DataSource.Queries)
-        {
-            columnNames.AddRange(measureNames.Select(x => $"{item.Query}_{x}"));
-        }
-        columnNames.Add("Name");
-        return columnNames;
-    }
+    public List<string> GetColumnNames() => DataSource.GetColumnNames()
+        .Concat(new[] { "Name" })
+        .ToList()
+        ;
 
     public string ToCsv()
     {
         var current = IntervalDefinitionList.First();
-        var headers = string.Join(",", GetColumnNames().Select(x=>$"\"{x}\""));
+        var headers = string.Join(",", GetColumnNames().Select(x => $"\"{x}\""));
 
 
         var writer = new StringBuilder();
@@ -45,30 +39,24 @@ public class ModelDefinition
         foreach (var currentInterval in IntervalDefinitionList)
         {
             var source = currentInterval.Data;
-            string data = ConvertToCsv(source);
-            data += "," + currentInterval.Name;
+            string data = DataSourceDefinition.ConvertToCsv(source);
+            data += $",\"{currentInterval.Name}\"";
             writer.AppendLine(data);
         }
 
         return writer.ToString();
     }
 
-    public static string ConvertToCsv(List<TimeSeriesDataSet> source)
+    public IEnumerable<MLInputData> ToInput()
     {
-        var data = "";
-        for (var i = 0; i < source.Count; i++)
+        foreach (var currentInterval in IntervalDefinitionList)
         {
-
-            var queryData = source[i];
-            var min = queryData.Data.Min(x => x.Value);
-            var max = queryData.Data.Max(x => x.Value);
-            var avg = queryData.Data.Average(x => x.Value);
-            var mean = queryData.Data.Sum(x => x.Value) / queryData.Data.Count;
-
-            data += min + "," + max + "," + avg + "," + mean + ",";
-
+            var source = currentInterval.Data;
+            yield return new MLInputData
+            {
+                Features       = DataSourceDefinition.ToFeatures(source),
+                Label = currentInterval.Name
+            };
         }
-
-        return data+"\"ignoreMe\"";
     }
 }

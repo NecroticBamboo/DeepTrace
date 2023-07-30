@@ -58,8 +58,8 @@
                             int pos = i;
 
                             <MudItem xs="10">
-                                @*<MudTextField Label="Query" @bind-Value="_queryForm.Source.Queries[pos].Query" Variant="Variant.Text" InputType="InputType.Search" Lines="2" />*@
-                                <MudAutocomplete Label="Query" @bind-Value="_queryForm.Source.Queries[pos].Query" Lines="1" Variant="Variant.Text" SearchFunc="@SearchForQuery"></MudAutocomplete>
+                                <MudTextField Label="Query" @bind-Value="_queryForm.Source.Queries[pos].Query" Variant="Variant.Text" InputType="InputType.Search" Lines="2" />
+                                @*<MudAutocomplete Label="Query" @bind-Value="_queryForm.Source.Queries[pos].Query" Lines="1" Variant="Variant.Text" SearchFunc="@SearchForQuery"></MudAutocomplete>*@
                             </MudItem>
                             <MudItem xs="1">
                                 <MudIconButton Icon="@Icons.Material.Outlined.Add" Variant="Variant.Outlined" aria-label="add" OnClick="@(() => AddQuery(pos))" />

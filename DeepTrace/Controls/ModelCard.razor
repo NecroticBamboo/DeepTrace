@@ -7,10 +7,16 @@
 @inject IDialogService DialogService
 @inject IModelStorageService ModelService
 @inject ITrainedModelStorageService TrainedModelService
-@inject ILogger<MLProcessor> MLProcessorLogger
 @inject ILogger<ModelCard> Logger
+@inject IMLProcessorFactory MlProcessorFactory
 
-<MudCard Class="mb-3">
+<style>
+    .card {
+        max-width: 250pt;
+    }
+</style>
+
+<MudCard Class="card mb-3">
     <MudCardHeader>
         <CardHeaderContent>
             <MudText Typo="Typo.h6">@Model?.Name</MudText>
@@ -21,6 +27,7 @@
     </MudCardHeader>
     <MudCardContent>    
         <MudText>Current state: @_prediction.PredictedLabel</MudText>
+        <MudText>@_updated.ToString("HH:mm:ss")</MudText>
     </MudCardContent>
 </MudCard>
 
@@ -29,7 +36,9 @@
     public TrainedModelDefinition? Model { get; set; }
 
     private ModelDefinition _modelDefinition = new();
-    private Prediction _prediction = new();
+    private Prediction _prediction           = new();
+    private IMLProcessor? _mlProcessor;
+    private DateTime _updated                = DateTime.MinValue;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -38,7 +47,8 @@
             return;
         }
         _modelDefinition = (await ModelService.Load(Model.Id)) ?? _modelDefinition;
-        
+        _mlProcessor = MlProcessorFactory.Create();
+
         #pragma warning disable CS4014
         Task.Run(PredictionLoop);
         #pragma warning restore CS4014
@@ -87,15 +97,20 @@
                 await PredictAnomaly(startDate, endDate);
                 startDate = endDate;
             }
-            catch(Exception)
+            catch(Exception e)
             {
-                //ignore
+                Logger.LogError(e, e.Message);
             }
         }
     }
 
     private async Task PredictAnomaly(DateTime startDate, DateTime endDate)
     {
+        if (Model == null || !Model.IsEnabled)
+        {
+            _prediction = new Prediction { PredictedLabel = "Idle" };
+            return;
+        }
 
         // use automatic step value to always request 500 elements
         var seconds = (endDate - startDate).TotalSeconds / 500.0;
@@ -150,8 +165,9 @@
             );
         }
 
-        var mlProcessor = new MLProcessor(MLProcessorLogger);
-        _prediction = await mlProcessor.Predict(Model, _modelDefinition, data);
+        _prediction = await _mlProcessor!.Predict(Model, _modelDefinition, data);
+        _updated = DateTime.Now;
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task ShowError(string text)

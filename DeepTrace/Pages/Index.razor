@@ -14,9 +14,9 @@ Welcome to your new app.
 @if (_trainedModels != null)
 {
     @foreach(TrainedModelDefinition model in _trainedModels)
-    {
-        <ModelCard Model="@model"/>
-    }
+{
+    <ModelCard Model="@model"/>
+}
 } else
 {
     <MudText>Nothing to display</MudText>
@@ -24,13 +24,13 @@ Welcome to your new app.
 
 
 @code{
-    private List<TrainedModelDefinition> _trainedModels = new();
+private List<TrainedModelDefinition> _trainedModels = new();
 
-    protected override async Task OnInitializedAsync()
-    {
-        base.OnInitialized();
-        _trainedModels = await TrainedModelService.Load();
+protected override async Task OnInitializedAsync()
+{
+    base.OnInitialized();
+    _trainedModels = await TrainedModelService.Load();
 
-    }
+}
 
 }

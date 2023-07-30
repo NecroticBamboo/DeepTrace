@@ -6,20 +6,19 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace PrometheusAPI
-{
-    public static class JsonSetializerSetup
-    {
-        private static JsonSerializerOptions _options = new JsonSerializerOptions
-        {
-            AllowTrailingCommas = true,
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            NumberHandling =
-                        JsonNumberHandling.AllowReadingFromString |
-                        JsonNumberHandling.WriteAsString,
-            PropertyNameCaseInsensitive = true
-        };
+namespace PrometheusAPI;
 
-        public static JsonSerializerOptions Options => _options;
-    }
+public static class JsonSetializerSetup
+{
+    private static JsonSerializerOptions _options = new JsonSerializerOptions
+    {
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        NumberHandling =
+                    JsonNumberHandling.AllowReadingFromString |
+                    JsonNumberHandling.WriteAsString,
+        PropertyNameCaseInsensitive = true
+    };
+
+    public static JsonSerializerOptions Options => _options;
 }

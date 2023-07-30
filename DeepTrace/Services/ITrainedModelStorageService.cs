@@ -1,11 +1,10 @@
 ﻿using DeepTrace.Data;
 
-namespace DeepTrace.Services
+namespace DeepTrace.Services;
+
+public interface ITrainedModelStorageService
 {
-    public interface ITrainedModelStorageService
-    {
-        Task Delete(TrainedModelDefinition source, bool ignoreNotStored = false);
-        Task<List<TrainedModelDefinition>> Load();
-        Task Store(TrainedModelDefinition source);
-    }
+    Task Delete(TrainedModelDefinition source, bool ignoreNotStored = false);
+    Task<List<TrainedModelDefinition>> Load();
+    Task Store(TrainedModelDefinition source);
 }
