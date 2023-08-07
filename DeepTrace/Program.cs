@@ -5,6 +5,7 @@ using DeepTrace.Services;
 using DeepTrace.ML;
 using ApexCharts;
 using log4net;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +31,8 @@ builder.Services
     .AddSingleton<ITrainedModelStorageService, TrainedModelStorageService>()
     .AddSingleton<IEstimatorBuilder, EstimatorBuilder>()
     .AddSingleton<IMLProcessorFactory, MLProcessorFactory>()
+    .AddHostedService<PrometheusWatcher>()
+    .AddSingleton<IPrometheusWatcher>(_ => PrometheusWatcher.Instance)
     ;
 
 var app = builder.Build();

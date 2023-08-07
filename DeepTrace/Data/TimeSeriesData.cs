@@ -11,5 +11,5 @@ public class TimeSeriesDataSet
 {
     public string Name { get; init; } = "Value";
     public string Color { get; init; } = "";
-    public IReadOnlyCollection<TimeSeries> Data { get; init; } = Array.Empty<TimeSeries>();
+    public List<TimeSeries> Data { get; init; } = new List<TimeSeries>();
 }

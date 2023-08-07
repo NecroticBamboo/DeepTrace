@@ -9,6 +9,7 @@
 @inject ITrainedModelStorageService TrainedModelService
 @inject ILogger<ModelCard> Logger
 @inject IMLProcessorFactory MlProcessorFactory
+@inject IPrometheusWatcher Watcher
 
 <style>
     .card {
@@ -112,60 +113,15 @@
             return;
         }
 
-        // use automatic step value to always request 500 elements
-        var seconds = (endDate - startDate).TotalSeconds / 500.0;
-        if (seconds < 1.0)
-            seconds = 1.0;
-        var step = TimeSpan.FromSeconds(seconds);
+        var data = Watcher.GetData(_modelDefinition!.DataSource.Queries);
 
-        var tasks = _modelDefinition!.DataSource.Queries
-            .Select(x => Prometheus.RangeQuery(x.Query, startDate, endDate, step, TimeSpan.FromSeconds(2)))
-            .ToArray();
-
-        try
+        if (data == null)
         {
-            await Task.WhenAll(tasks);
-        }
-        catch (Exception e)
-        {
-            await ShowError(e.Message);
+            _prediction = new Prediction { PredictedLabel = "Gathering..." };
             return;
         }
 
-        var data = new List<TimeSeriesDataSet>();
-
-        foreach (var (res, def) in tasks.Select((x, i) => (x.Result, _modelDefinition.DataSource.Queries[i])))
-        {
-            if (res.Status != StatusType.Success)
-            {
-                Logger.LogError(res.Error ?? "Error");
-                return;
-            }
-
-            if (res.ResultType != ResultTypeType.Matrix)
-            {
-                Logger.LogError($"Got {res.ResultType}, but Matrix expected for {def.Query}");
-                return;
-            }
-
-            var m = res.AsMatrix().Result;
-            if (m == null || m.Length != 1)
-            {
-                Logger.LogError($"No data returned for {def.Query}");
-                return;
-            }
-
-            data.Add(
-                new()
-                    {
-                        Name = def.Query,
-                        Color = def.Color,
-                        Data = m[0].Values!.ToList()
-                    }
-            );
-        }
-
-        _prediction = await _mlProcessor!.Predict(Model, _modelDefinition, data);
+        _prediction = await _mlProcessor!.Predict(Model, _modelDefinition, data.Data);
         _updated = DateTime.Now;
         await InvokeAsync(StateHasChanged);
     }
