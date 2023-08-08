@@ -99,10 +99,23 @@
     <MudItem xs="12" sm="6" md="6" lg="9">
         <MudCard>
             <MudCardContent>
-                <div hidden="@IsChartShown"><MudProgressCircular Color="MudBlazor.Color.Default" /></div>
-                <div hidden="@IsChartHidden">
-                    <TimeSeriesChart Data="@DisplayData" @bind-MinDate=MinDate @bind-MaxDate=MaxDate />
+                @*
+                <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                    <MudTabPanel Text="Graph">
+                </MudTabPanel>
+                <MudTabPanel Text="Correlation">
+                </MudTabPanel>
+                </MudTabs>
+                *@
+                <div hidden="@IsChartShown">
+                    <MudProgressCircular Color="MudBlazor.Color.Default" />
                 </div>
+                <MudItem hidden="@IsChartHidden" xs="12" sm="6" md="6" lg="6">
+                    <TimeSeriesChart Data="@DisplayData" @bind-MinDate=MinDate @bind-MaxDate=MaxDate />
+                </MudItem>
+                <MudItem hidden="@IsChartHidden" xs="12" sm="6" md="6" lg="6">
+                    <CorrelationChart Data="@DisplayData" />
+                </MudItem>
             </MudCardContent>
         </MudCard>
     </MudItem>
@@ -111,6 +124,7 @@
 
 
 @code {
+
     [CascadingParameter]
     protected bool IsDarkMode { get; set; }
 
@@ -145,7 +159,7 @@
     };
     private MudDateRangePicker? _picker;
 
-    private bool IsChartHidden => DisplayData == null;
+    private bool IsChartHidden => DisplayData == null || DisplayData.Series.Count == 0;
     private bool IsChartShown => !IsChartHidden;
 
     private async Task<IEnumerable<string>> SearchForQuery(string value)

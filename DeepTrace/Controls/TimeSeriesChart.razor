@@ -1,73 +1,105 @@
 ﻿@using DeepTrace.Data;
 @using DeepTrace.Services;
 @using PrometheusAPI;
-    using DeepTrace.Data;
+
 <ApexChart @ref="_chart"
-            TItem="TimeSeries"
-            Title="Data view"
-            Options="@_options"
-            OnZoomed="OnZoomed"
-            >
+    TItem="TimeSeries"
+    Title="Data view"
+    Options="@_options"
+    OnZoomed="OnZoomed"
+    >
     @foreach (var ts in _currentData.Series)
-{
-    <ApexPointSeries TItem="TimeSeries"
-            Name="@ts.Name"
+    {
+        <ApexPointSeries TItem="TimeSeries"
+            Name="@ts.Label"
             Items="@ts.Data"
             SeriesType="SeriesType.Line"
             XValue="@(e => e.TimeStamp)"
             YAggregate="@(e => (decimal)e.Sum(e => e.Value))"
             ShowDataLabels="false" 
             />
-}
+    }
 </ApexChart>
+
 
 @code {
 
-[CascadingParameter]
-protected bool IsDarkMode { get; set; }
+    [CascadingParameter]
+    protected bool IsDarkMode { get; set; }
 
-[Parameter] public TimeSeriesData? Data { get; set; }
+    [Parameter] public TimeSeriesData? Data { get; set; }
 
-[Parameter] public DateTime?                MinDate        { get; set; }
-[Parameter] public DateTime?                MaxDate        { get; set; }
-[Parameter] public EventCallback<DateTime?> MinDateChanged { get; set; }
-[Parameter] public EventCallback<DateTime?> MaxDateChanged { get; set; }
+    [Parameter] public DateTime?                MinDate        { get; set; }
+    [Parameter] public DateTime?                MaxDate        { get; set; }
+    [Parameter] public EventCallback<DateTime?> MinDateChanged { get; set; }
+    [Parameter] public EventCallback<DateTime?> MaxDateChanged { get; set; }
 
-private ApexChart<TimeSeries>?        _chart;
-private ApexChartOptions<TimeSeries>? _options;
-private TimeSeriesData                _currentData = new() { Series = { new () } };
+    private ApexChart<TimeSeries>?        _chart;
+    private ApexChartOptions<TimeSeries>? _options;
+    private TimeSeriesData                _currentData = CreateEmpty();
 
-protected override void OnInitialized()
-{
-    _options = CreateOptions();
-    base.OnInitialized();
-}
+    protected override async Task OnInitializedAsync()
+    {
+        await UpdateChart();
+        await base.OnInitializedAsync();
+    }
 
-protected override async Task OnParametersSetAsync()
-{
-    Console.WriteLine("OnParametersSet");
+    //protected override async Task OnAfterRenderAsync(bool firstRender)
+    //{
+    //    if (firstRender)
+    //        await UpdateChart();
+    //    base.OnAfterRender(firstRender);
+    //}
 
-    await UpdateChart();
-    await base.OnParametersSetAsync();
-}
+    protected override async Task OnParametersSetAsync()
+    {
+        await UpdateChart();
+        await base.OnParametersSetAsync();
+    }
 
-private async Task UpdateChart()
-{
-    if (Data == _currentData)
-        return;
 
-    _currentData = Data ?? new() { Series = { new() } }; ;
-    _options = CreateOptions();
+    private async Task UpdateChart()
+    {
+        if (Data == _currentData)
+            return;
 
-    if (_chart == null)
-        return;
+        _currentData = Data?.Series.Count > 0 && Data.Series.All(x => x.Data.Count > 0)
+            ? Data
+            : CreateEmpty();
 
-    //await InvokeAsync(StateHasChanged);
-    await _chart!.UpdateSeriesAsync();
-    await _chart!.UpdateOptionsAsync(true, true, true);
-    await InvokeAsync(StateHasChanged);
+        _options = CreateOptions();
 
-}
+        if (_chart == null)
+            return;
+
+        //await InvokeAsync(StateHasChanged);
+        if (_currentData.Series.Count > 0)
+        {
+            await _chart.UpdateSeriesAsync();
+            await _chart.UpdateOptionsAsync(true, true, true);
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static TimeSeriesData CreateEmpty() => new()
+        {
+            Series =
+                {
+                new()
+                {
+                    Name = "??",
+                    Data = new List<TimeSeries>
+                    {
+                        new TimeSeries
+                        {
+                            TimeStamp = DateTime.Now,
+                            Value = 0.0F
+                        }
+                    }
+                }
+            }
+        };
+
 
 private ApexChartOptions<TimeSeries> CreateOptions()
 {

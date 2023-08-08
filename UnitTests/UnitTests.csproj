@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DeepTrace\DeepTrace.csproj" />
     <ProjectReference Include="..\PrometheusAPI\PrometheusAPI.csproj" />
   </ItemGroup>
 

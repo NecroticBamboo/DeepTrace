@@ -1,0 +1,204 @@
+﻿@using DeepTrace.Data;
+@using DeepTrace.ML;
+@using PrometheusAPI;
+
+@if (_matrix.Count > 0)
+{
+    <ApexChart @ref="_chart"
+        Title="Correlation"
+        Options="@_options"
+        >
+            @for (var i = 0; i < _matrix!.Count; i++)
+            {
+                <ApexPointSeries TItem="HeatMapData"
+                        Name="@_matrix[i].Name"
+                        Items="@_matrix[i].Series"
+                        SeriesType="SeriesType.Heatmap"
+                        XValue="@(e => e.Name)"
+                        YAggregate="@(e => (decimal)e.Sum(x => float.IsNaN(x.Value) || !float.IsFinite(x.Value) ? 0F : x.Value))"
+                        ShowDataLabels="false" />
+            }
+    </ApexChart>
+}
+
+@code {
+    [CascadingParameter]
+    protected bool IsDarkMode { get; set; }
+
+    [Parameter] public TimeSeriesData? Data { get; set; }
+
+    private ApexChart<HeatMapData>?        _chart;
+    private ApexChartOptions<HeatMapData>? _options;
+    private List<HeatMapDataSeries>        _matrix = new();
+    private TimeSeriesData                 _currentData = new() { Series = { new() } };
+
+    private record HeatMapData( string Name, float Value)
+    {
+        public override string ToString() => $"{Value:N4} {Name}";
+    }    
+    private record HeatMapDataSeries(string Name, List<HeatMapData> Series)
+    {
+        public override string ToString() => $"{Name} {Series.Count}";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await UpdateChart();
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await UpdateChart();
+        await base.OnParametersSetAsync();
+    }
+
+    private decimal GetValue(object o)
+    {
+        if (o is float f && !float.IsNaN(f) )
+            return (decimal)f;
+        return 0m;
+    }
+
+    private async Task UpdateChart()
+    {
+        if (Data == _currentData)
+            return;
+
+        _currentData = Data?.Series.Count > 0 && Data.Series.All( x => x.Data.Count > 0 )
+            ? Data
+            : new()
+                {
+                    Series =
+                    {
+                        new()
+                        {
+                            Name = "??",
+                            Data = new List<TimeSeries>
+                            {
+                                new TimeSeries
+                                {
+                                    TimeStamp = DateTime.Now,
+                                    Value = 0.0F
+                                }
+                            }
+                        }
+                    }
+                };
+
+        var matrix = Correlation.Matrix(DataSourceDefinition.Normalize(_currentData.Series) ?? _currentData.Series);
+        if (matrix.GetLength(0) == 0 )
+        {
+            matrix = new float[_currentData.Series.Count, _currentData.Series.Count];
+        }
+
+        _matrix.Clear();
+        for( var i = 0; i < matrix.GetLength(0); i++ )
+        {
+            _matrix.Add(new(
+                TimeSeriesDataSet.MakeLabel(_currentData.Series[i].Name), 
+                Enumerable.Range(0, matrix.GetLength(1))
+                    .Select(x => new HeatMapData(
+                        TimeSeriesDataSet.MakeLabel(_currentData.Series[x].Name),
+                        matrix[x, i]
+                    ))
+                    .ToList()
+                )
+            );
+        }
+
+        _options = CreateOptions();
+
+        if (_chart == null)
+            return;
+
+        //await InvokeAsync(StateHasChanged);
+        await _chart.UpdateSeriesAsync();
+        await _chart.UpdateOptionsAsync(true, true, true);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private ApexChartOptions<HeatMapData> CreateOptions()
+    {
+        var backgroundColor = IsDarkMode ? "var(--mud-palette-surface)" : "#f3f3f3";
+        var gridColor       = IsDarkMode ? "var(--mud-palette-drawer-background)" : "#f3f3f3";
+        var borderColor     = IsDarkMode ? "var(--mud-palette-text-primary)" : "#e7e7e7";
+        var lineColors      = _currentData.Series.Select(x => x.Color).ToList();
+        var mode            = IsDarkMode
+            ? Mode.Dark
+            : Mode.Light
+            ;
+
+        var options = new ApexChartOptions<HeatMapData>
+            {
+                Chart = new()
+                {
+                    Background = backgroundColor,
+                    Toolbar = new()
+                    {
+                        Show = true
+                    },
+                    DropShadow = new()
+                    {
+                        Enabled = false,
+                        Color   = "",
+                        Top     = 18,
+                        Left    = 7,
+                        Blur    = 10,
+                        Opacity = 0.2d
+                    }
+                },
+                DataLabels = new()
+                {
+                    Enabled = false
+                },
+                //Tooltip = new ApexCharts.Tooltip
+                //{
+                //    Y = new()
+                //    {
+                //        Formatter = @"function(value, opts) {
+                //                    if (value === undefined) {return '';}
+                //                    return Number(value).toLocaleString();}",
+                //    },
+                //    X = new()
+                //    {
+                //        Formatter = @"function(value, opts) {
+                //                    if (value === undefined) {return '';}
+                //                    return (new Date(value)).toISOString();}",
+                //    }
+
+                //},
+                //Xaxis = new()
+                //{
+                //    Type = XAxisType.Category
+                //},
+                //Grid = new()
+                //{
+                //    BorderColor = borderColor,
+                //    Row = new()
+                //    {
+                //        Colors = new List<string> { gridColor, "transparent" },
+                //        Opacity = 0.5d
+                //    }
+                //},
+                Colors = new List<string> { "#008FFB" },
+                //Stroke = new() { Curve = Curve.Straight, Width = 2 },
+                //Legend = new()
+                //{
+                //    Position = LegendPosition.Top,
+                //    HorizontalAlign = ApexCharts.Align.Right,
+                //    Floating = true,
+                //    OffsetX = -5,
+                //    OffsetY = -25
+                //},
+                Theme = new()
+                {
+                    Mode = mode,
+                    //Palette = PaletteType.Palette8,
+                }
+            };
+
+        return options;
+    }
+
+}

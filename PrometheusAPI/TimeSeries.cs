@@ -1,6 +1,4 @@
 ﻿using Microsoft.ML.Data;
-using Newtonsoft.Json.Converters;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace PrometheusAPI;
