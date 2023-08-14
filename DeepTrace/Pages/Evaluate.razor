@@ -1,0 +1,249 @@
+﻿@page "/evaluate"
+@using CsvHelper;
+@using DeepTrace.Controls
+@using DeepTrace.Data;
+@using DeepTrace.ML;
+@using DeepTrace.Services;
+@using Microsoft.ML;
+@using System.Data;
+@using MudBlazor;
+@using PrometheusAPI;
+@using System.ComponentModel.DataAnnotations;
+@using Microsoft.ML.Data;
+@using Microsoft.ML.TimeSeries;
+@using System.Globalization;
+
+@inject PrometheusClient Prometheus
+@inject IDialogService DialogService
+@inject IDataSourceStorageService StorageService
+@inject IMLProcessorFactory MlProcessorFactory
+
+<PageTitle>DataSources</PageTitle>
+
+<style>
+    .graph {
+        max-width: 800px;
+        max-height: 600px;
+    }
+</style>
+
+<h1>Evaluate test data</h1>
+
+<p>Upload CSV containing TimeStamp, Label and at least one feature column. ML model will be created and evauated against these serries.</p>
+
+<MudGrid Justify="Justify.FlexStart">
+    <MudItem xs="12" sm="6" md="6" lg="3">
+        
+        <MudCard Class="mb-3">
+            <MudCardActions>
+                <MudFileUpload T="IBrowserFile" Accept=".csv" FilesChanged="@HandleEvaluate" MaximumFileCount="1" Class="ml-3">
+                    <ButtonTemplate>
+                        <MudButton HtmlTag="label"
+                                   Variant="Variant.Filled"
+                                   Color="MudBlazor.Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                                   for="@context">
+                            Import
+                        </MudButton>
+                    </ButtonTemplate>
+                </MudFileUpload>
+
+                @* <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="ml-3" OnClick="@HandleEvaluate">Evaluate</MudButton> *@
+            </MudCardActions>
+        </MudCard>
+
+    </MudItem>
+    <MudItem xs="12" sm="6" md="6" lg="9">
+        <MudCard>
+            <MudCardContent>
+                <div hidden="@IsChartShown">
+                    <MudProgressCircular Color="MudBlazor.Color.Default" />
+                </div>
+                <MudItem hidden="@IsChartHidden" xs="12" sm="6" md="6" lg="6">
+                    <TimeSeriesChart Data="@DisplayData" @bind-MinDate=MinDate @bind-MaxDate=MaxDate />
+                </MudItem>
+                <MudItem hidden="@IsChartHidden" xs="12" sm="6" md="6" lg="6">
+                    <CorrelationChart Data="@DisplayData" />
+                </MudItem>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+</MudGrid>
+
+
+@code {
+
+    [CascadingParameter]
+    protected bool IsDarkMode { get; set; }
+
+    private bool IsChartHidden => DisplayData == null || DisplayData.Series.Count == 0;
+    private bool IsChartShown => !IsChartHidden;
+
+    private DateTime? MinDate { get; set; }
+
+    private DateTime? MaxDate { get; set; }
+
+    private TimeSeriesData? DisplayData { get; set; }
+
+    private string[] _palette = new[]
+    {
+        "#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5",
+        "#FFEBEE", "#FCE4EC", "#F3E5F5", "#EDE7F6", "#E8EAF6",
+        "#FFCDD2", "#F8BBD0", "#E1BEE7", "#D1C4E9", "#C5CAE9",
+        "#EF9A9A", "#F48FB1", "#CE93D8", "#B39DDB", "#9FA8DA",
+        "#E57373", "#F06292", "#BA68C8", "#9575CD", "#7986CB",
+        "#EF5350", "#EC407A", "#AB47BC", "#7E57C2", "#5C6BC0",
+        "#E53935", "#D81B60", "#8E24AA", "#5E35B1", "#3949AB"
+    };
+
+    private async Task HandleEvaluate(IBrowserFile file)
+    {
+        try
+        {
+            await HandleImportInternal(file);
+        }
+        catch (Exception e)
+        {
+            await ShowError($"Can't import: {e.Message}");
+        }
+    }
+
+    private record DataLabels(DateTime TimeStamp, string Label);
+
+    private async Task HandleImportInternal(IBrowserFile file)
+    {
+        using var mem = new MemoryStream();
+        // https://stackoverflow.com/questions/67066860/blazorinputfile-synchronous-reads-are-not-supported
+        await file.OpenReadStream(file.Size).CopyToAsync(mem);
+        mem.Position = 0;
+
+        using (var reader = new StreamReader(mem))
+        using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+        {
+            csv.Read();
+            csv.ReadHeader();
+
+            if (csv.HeaderRecord == null)
+                return;
+
+            var headers = csv.HeaderRecord.Select((x,i) => (x,i)).ToDictionary(x => x.x, x => x.i, StringComparer.OrdinalIgnoreCase);
+            var timeStampColId = headers["TimeStamp"];
+            var labelColId = headers["Label"];
+
+            var series = new Dictionary<string, TimeSeriesDataSet>();
+            for (var i = 0; i < headers.Count; i++)
+            {
+                if (i == timeStampColId || i == labelColId)
+                    continue;
+
+                series[csv.HeaderRecord[i]] = new() 
+                { 
+                    Name  = csv.HeaderRecord[i], 
+                    Color = _palette[i % _palette.Length] 
+                };
+            }
+
+            var labels = new List<DataLabels>();
+
+            while (csv.Read())
+            {
+                var v = csv.GetField(timeStampColId);
+                if (!DateTime.TryParse(v, out var timeStamp))
+                    continue;
+                var label = csv.GetField(labelColId) ?? "No label";
+
+                labels.Add(new(TimeStamp: timeStamp, Label: label));
+
+                for( var i = 0; i < headers.Count; i++ )
+                {
+                    if (i == timeStampColId || i == labelColId)
+                        continue;
+
+                    v = csv.GetField(i) ?? "0";
+                    if (!float.TryParse(v, out var f))
+                        f = 0.0F;
+                    series[csv.HeaderRecord[i]].Data.Add(new(timeStamp, f) );
+                }
+            }
+
+            var data = new TimeSeriesData();
+            data.Series.AddRange(series.Values);
+            DisplayData = data;
+
+            var model = CreateModelDefinition(data, labels);
+            model.Name = file.Name;
+            await TrainModel(model);
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static ModelDefinition CreateModelDefinition(TimeSeriesData data, List<DataLabels> labels)
+    {
+        var model = new ModelDefinition();
+
+        foreach( var ts in data.Series )
+            model.DataSource.Queries.Add(new(ts.Name, ts.Color));
+
+        ConvertToIntervals(model.IntervalDefinitionList, data, labels);
+
+        return model;
+    }
+
+    private static void ConvertToIntervals(List<IntervalDefinition> intervals, TimeSeriesData data, List<DataLabels> labels)
+    {
+        for(var i=0; i<labels.Count; i++)
+        {
+            var intervalDefinition = new IntervalDefinition
+            {
+                From = labels[i].TimeStamp,
+                To = labels[i].TimeStamp,
+                Name = labels[i].Label
+            };
+            foreach(var series in data.Series)
+            {
+                var ts = new TimeSeriesDataSet
+                {
+                    Name = series.Name,
+                    Color = series.Color,
+                    Data = { series.Data[i]}
+                };
+                intervalDefinition.Data.Add(ts);
+            }
+            intervals.Add(intervalDefinition);
+        }
+    }
+
+    private async Task TrainModel(ModelDefinition model)
+    {
+        var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true
+            };
+        var parameters = new DialogParameters();
+
+        var mlProcessor = MlProcessorFactory.Create();
+
+        parameters.Add(nameof(Controls.TrainingDialog.Text), model.Name);
+        parameters.Add(nameof(Controls.TrainingDialog.Processor), mlProcessor);
+        parameters.Add(nameof(Controls.TrainingDialog.Model), model);
+
+        var d = DialogService.Show<Controls.TrainingDialog>("Training", parameters, options);
+        var _ = await d.Result;
+    }
+
+
+    private async Task ShowError(string text)
+    {
+        var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add("Text", text);
+
+        var d = DialogService.Show<Controls.Dialog>("Error", parameters, options);
+        await d.Result;
+    }
+
+}
