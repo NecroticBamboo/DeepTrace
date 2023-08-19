@@ -9,6 +9,7 @@
 @using PrometheusAPI;
 @using System.Text;
 @using System.Globalization;
+@using System.Collections.Concurrent;
 
 @inject PrometheusClient Prometheus
 @inject IDialogService DialogService
@@ -271,13 +272,17 @@
 
         var startDate = MinDate ?? (DateTime.UtcNow - TimeSpan.FromDays(30));
         var endDate = MaxDate ?? DateTime.UtcNow;
-
-        await UpdateDisplayData(startDate, endDate);
+        var reported = new ConcurrentDictionary<string, bool>();
+        await UpdateDisplayData(startDate, endDate, reported);
 
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task UpdateDisplayData(DateTime startDate, DateTime endDate)
+    private async Task UpdateDisplayData(
+        DateTime startDate, 
+        DateTime endDate, 
+        ConcurrentDictionary<string, bool> reported
+    )
     {
 
         // use automatic step value to always request 500 elements
@@ -306,20 +311,26 @@
         {
             if (res.Status != StatusType.Success)
             {
-                await ShowError(res.Error ?? "Error");
+                var msg = res.Error ?? "Error";
+                if ( reported.TryAdd(msg, true))
+                    await ShowError(msg);
                 return;
             }
 
             if (res.ResultType != ResultTypeType.Matrix)
             {
-                await ShowError($"Got {res.ResultType}, but Matrix expected for {def.Query}");
+                var msg = $"Got {res.ResultType}, but Matrix expected for {def.Query}";
+                if (reported.TryAdd(msg, true))
+                    await ShowError(msg);
                 return;
             }
 
             var m = res.AsMatrix().Result;
             if (m == null || m.Length != 1)
             {
-                await ShowError($"No data returned for {def.Query}");
+                var msg = $"No data returned for {def.Query}";
+                if (reported.TryAdd(msg, true))
+                    await ShowError(msg);
                 return;
             }
 
@@ -391,8 +402,13 @@
         if(element is IntervalDefinition interval)
         {
             _nameBackUp = interval.Name;
+            var reported = new ConcurrentDictionary<string, bool>();
+            InvokeAsync( async () =>
+            {
+                await UpdateDisplayData(interval.From, interval.To, reported);
+                await InvokeAsync(StateHasChanged);
+            });
         }
-
     }
 
     private void ResetItemToOriginalValues(object element)
@@ -414,10 +430,10 @@
             return;
 
         var previousIntervals = _modelForm!.CurrentModel.IntervalDefinitionList;
-
+        var reported = new ConcurrentDictionary<string, bool>();
         foreach(var currentInterval in previousIntervals)
         {
-            await UpdateDisplayData(currentInterval.From,currentInterval.To);
+            await UpdateDisplayData(currentInterval.From,currentInterval.To, reported);
             currentInterval.Data = DisplayData!.Series;
         }       
         await ModelService.Store(_modelForm!.CurrentModel);

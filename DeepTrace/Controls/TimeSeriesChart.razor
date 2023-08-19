@@ -44,12 +44,17 @@
         await base.OnInitializedAsync();
     }
 
-    //protected override async Task OnAfterRenderAsync(bool firstRender)
-    //{
-    //    if (firstRender)
-    //        await UpdateChart();
-    //    base.OnAfterRender(firstRender);
-    //}
+    private bool _rendered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _rendered = true;
+            await UpdateChart(); 
+        }
+        base.OnAfterRender(firstRender);
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -73,9 +78,9 @@
             return;
 
         //await InvokeAsync(StateHasChanged);
-        if (_currentData.Series.Count > 0)
+        if (_currentData.Series.Count > 0 && _rendered)
         {
-            await _chart.UpdateSeriesAsync();
+            await InvokeAsync( async () => await _chart.UpdateSeriesAsync() );
             await _chart.UpdateOptionsAsync(true, true, true);
         }
         await InvokeAsync(StateHasChanged);

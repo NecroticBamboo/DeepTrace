@@ -19,20 +19,23 @@
 
 <MudCard Class="card mb-3">
     <MudCardHeader>
+        <CardHeaderAvatar>
+            <MudAvatar Color="MudBlazor.Color.Secondary">@Model?.Name[..1].ToUpper()</MudAvatar>
+        </CardHeaderAvatar>        
         <CardHeaderContent>
-            <MudText Typo="Typo.h6">@Model?.Name</MudText>
+            <MudText Typo="Typo.body1">@Model?.Name</MudText>
         </CardHeaderContent>
         <CardHeaderActions>
-            <MudSwitch @bind-Checked="IsEnabled"> @Model?.IsEnabled</MudSwitch>
+            <MudSwitch @bind-Checked="IsEnabled"> @(IsEnabled ? "On" : "Off")</MudSwitch>
         </CardHeaderActions>
     </MudCardHeader>
     <MudCardContent>    
-        <MudText>Current state: @_prediction.PredictedLabel</MudText>
-        <MudText>@_updated.ToString("HH:mm:ss")</MudText>
+        <MudText Class="@TextStyle">Current state: @_prediction.PredictedLabel</MudText>
+        <MudText Class="@TextStyle">@_updated.ToString("HH:mm:ss")</MudText>
     </MudCardContent>
 </MudCard>
 
-@code{
+    @code{
     [Parameter]
     public TrainedModelDefinition? Model { get; set; }
 
@@ -40,6 +43,8 @@
     private Prediction _prediction           = new();
     private IMLProcessor? _mlProcessor;
     private DateTime _updated                = DateTime.MinValue;
+
+    private string TextStyle => IsEnabled ? "mud-secondary-text" : "";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -66,6 +71,7 @@
             }
             Model.IsEnabled = value;
             InvokeAsync(SaveIsEnabled);
+            InvokeAsync(StateHasChanged);
         }
     }
 

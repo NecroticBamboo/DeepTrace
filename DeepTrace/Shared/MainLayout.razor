@@ -16,6 +16,9 @@
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
+        <div class="d-flex justify-left align-end mud-height-full">
+            <MudSwitch @bind-Checked="@IsDarkMode" Color="MudBlazor.Color.Primary" Class="ma-4" T="bool" Label="Dark Mode" />
+        </div>
     </MudDrawer>
     <MudMainContent>
         <CascadingValue Value="@IsDarkMode">
